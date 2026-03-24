@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --cream: #f5f1e8;
+  --cream2: #ede8da;
+  --stone: #c8c0b0;
+  --text: #1a1a18;
+  --text2: #6a6258;
+  --text3: #9a9288;
+  --green: #638872;
+  --green-dark: #3d6858;
+  --teal: #94c7b4;
+  --teal-light: rgba(148, 199, 180, 0.18);
+  --amber: #e8a020;
+  --amber-light: rgba(232, 160, 32, 0.12);
+  --frost: rgba(255, 255, 255, 0.72);
+  --frost-border: rgba(255, 255, 255, 0.9);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-cream: var(--cream);
+  --color-cream2: var(--cream2);
+  --color-stone: var(--stone);
+  --color-text: var(--text);
+  --color-text2: var(--text2);
+  --color-text3: var(--text3);
+  --color-green: var(--green);
+  --color-green-dark: var(--green-dark);
+  --color-teal: var(--teal);
+  --color-amber: var(--amber);
+  --font-outfit: 'Outfit', sans-serif;
+  --font-nunito: 'Nunito', sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--cream);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.frost-card {
+  background: var(--frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid var(--frost-border);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.pill-btn {
+  border-radius: 40px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-green {
+  background: var(--green);
+  color: #fff;
+  border: none;
+}
+
+.btn-green:hover {
+  background: var(--green-dark);
+}
+
+.label-caps {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text3);
+}
+
+.bg-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
 }
