@@ -43,8 +43,24 @@ export default function TrailDetailPage() {
         body: JSON.stringify({ trail, quiz: answers }),
       })
       if (!res.ok) throw new Error('Generation failed')
-      const data = await res.json()
-      setDopeSheet(data.sheet)
+
+      // Read the streamed response and accumulate into a single string
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          fullText += decoder.decode(value, { stream: true })
+        }
+      }
+
+      // Strip markdown fences if present
+      let json = fullText.trim()
+      json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+      const sheet = JSON.parse(json)
+      setDopeSheet(sheet)
       // Scroll to sheet after render
       setTimeout(() => {
         document.getElementById('dope-sheet-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

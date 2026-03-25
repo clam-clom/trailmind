@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+// NextResponse kept for error returns; streaming success uses raw Response
 import { anthropic } from '@/lib/anthropic'
 import { Trail, DopeSheetQuizAnswers } from '@/lib/types'
 
@@ -140,24 +141,41 @@ Return JSON matching this exact structure:
   "safety_callouts": [list of safety notes for ${quiz.experience} experience level in ${quiz.season}]
 }`
 
-    const message = await anthropic.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 32000,
+    // Stream the response — required for claude-opus-4-6 at 128k output tokens
+    const stream = anthropic.messages.stream({
+      model: 'claude-opus-4-6',
+      max_tokens: 128000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const content = message.content[0]
-    if (content.type !== 'text') {
-      return NextResponse.json({ error: 'No response from AI' }, { status: 500 })
-    }
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            if (
+              chunk.type === 'content_block_delta' &&
+              chunk.delta.type === 'text_delta'
+            ) {
+              controller.enqueue(encoder.encode(chunk.delta.text))
+            }
+          }
+          controller.close()
+        } catch (err) {
+          console.error('DOPE sheet stream error:', err)
+          controller.error(err)
+        }
+      },
+    })
 
-    let json = content.text.trim()
-    // Strip markdown fences if Claude adds them despite instructions
-    json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-
-    const sheet = JSON.parse(json)
-    return NextResponse.json({ sheet })
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+      },
+    })
   } catch (err) {
     console.error('DOPE sheet error:', err)
     return NextResponse.json({ error: 'Failed to generate DOPE sheet' }, { status: 500 })
