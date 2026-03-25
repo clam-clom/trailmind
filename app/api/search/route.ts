@@ -50,22 +50,46 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         const s = (msg: string) => controller.enqueue(encoder.encode(`s:${msg}\n`))
         try {
-          s('Asking Claude...')
-          const message = await anthropic.messages.create({
+          s('Searching...')
+
+          // Stream from Claude so we can detect trail names as they're written
+          const stream = anthropic.messages.stream({
             model: 'claude-opus-4-6',
             max_tokens: 4096,
             system: SYSTEM_PROMPT,
             messages: [{ role: 'user', content: query }],
           })
-          const content = message.content[0]
-          if (content.type !== 'text') throw new Error('Unexpected response format')
-          let jsonText = content.text.trim()
+
+          let accumulated = ''
+          let trailCount = 0
+          const NAME_RE = /"name":\s*"([^"]+)"/g
+
+          for await (const chunk of stream) {
+            if (
+              chunk.type === 'content_block_delta' &&
+              chunk.delta.type === 'text_delta'
+            ) {
+              accumulated += chunk.delta.text
+
+              // Each time Claude finishes writing a trail name, fire a real status
+              const names = [...accumulated.matchAll(NAME_RE)]
+              if (names.length > trailCount) {
+                const latest = names[names.length - 1][1]
+                trailCount = names.length
+                s(`Found: ${latest}`)
+              }
+            }
+          }
+
+          s(`Done — ${trailCount} trails found`)
+
+          // Strip markdown fences if present, parse, wrap, send
+          let jsonText = accumulated.trim()
           if (jsonText.startsWith('```')) {
             jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
           }
-          // Validate JSON then send
-          const parsed = { trails: JSON.parse(jsonText), query }
-          controller.enqueue(encoder.encode(JSON.stringify(parsed)))
+          const data = { trails: JSON.parse(jsonText), query }
+          controller.enqueue(encoder.encode(JSON.stringify(data)))
         } catch (err) {
           console.error('Search error:', err)
           controller.enqueue(encoder.encode(`s:Something went wrong\n`))
