@@ -105,10 +105,8 @@ export default function TrailDetailPage() {
       }
       if (lineBuffer && !lineBuffer.startsWith('s:')) dataBuffer += lineBuffer
 
-      let json = dataBuffer.trim()
-      json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
-      const sheet = JSON.parse(json)
-      setDopeSheet(sheet)
+      const data = JSON.parse(dataBuffer.trim())
+      setDopeSheet(data.sheet)
       // Scroll to sheet after render
       setTimeout(() => {
         document.getElementById('dope-sheet-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

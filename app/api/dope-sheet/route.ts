@@ -176,6 +176,9 @@ Return JSON matching this exact structure:
             ['"links":',           'Gathering source links...'],
             ['"safety_callouts":', 'Adding safety notes...'],
           ]
+          // Accumulate server-side — only send s: status lines during generation.
+          // JSON is sent as one clean chunk at the end so status lines never
+          // get concatenated into JSON content mid-stream.
           let accumulated = ''
           const announced = new Set<string>()
 
@@ -184,9 +187,7 @@ Return JSON matching this exact structure:
               chunk.type === 'content_block_delta' &&
               chunk.delta.type === 'text_delta'
             ) {
-              const text = chunk.delta.text
-              accumulated += text
-              controller.enqueue(encoder.encode(text))
+              accumulated += chunk.delta.text
 
               // Check if Claude has started a new section
               for (const [marker, msg] of SECTION_MARKERS) {
@@ -198,6 +199,11 @@ Return JSON matching this exact structure:
             }
           }
 
+          // Strip markdown fences, validate, send complete JSON
+          let json = accumulated.trim()
+          json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+          const sheet = JSON.parse(json)
+          controller.enqueue(encoder.encode(JSON.stringify({ sheet })))
           controller.close()
         } catch (err) {
           console.error('DOPE sheet stream error:', err)
