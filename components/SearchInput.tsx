@@ -25,9 +25,41 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
   const placeholderIdx = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
 
-  // Abort any in-flight search when this component unmounts (e.g. navigating away)
+  // Throttled status: each message stays visible for at least 5s
+  const pendingStatusRef = useRef<string | null>(null)
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastShownAtRef = useRef<number>(0)
+
+  const showStatus = (msg: string) => {
+    const now = Date.now()
+    const elapsed = now - lastShownAtRef.current
+    if (elapsed >= 5000 || lastShownAtRef.current === 0) {
+      setStatusMsg(msg)
+      lastShownAtRef.current = now
+      pendingStatusRef.current = null
+      if (statusTimerRef.current) { clearTimeout(statusTimerRef.current); statusTimerRef.current = null }
+    } else {
+      // Queue latest — discard any previously queued
+      pendingStatusRef.current = msg
+      if (!statusTimerRef.current) {
+        statusTimerRef.current = setTimeout(() => {
+          statusTimerRef.current = null
+          if (pendingStatusRef.current) {
+            setStatusMsg(pendingStatusRef.current)
+            lastShownAtRef.current = Date.now()
+            pendingStatusRef.current = null
+          }
+        }, 5000 - elapsed)
+      }
+    }
+  }
+
+  // Abort search + clean up timers on unmount
   useEffect(() => {
-    return () => { abortRef.current?.abort() }
+    return () => {
+      abortRef.current?.abort()
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -51,6 +83,9 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
     abortRef.current = abort
     setLoading(true)
     setStatusMsg('')
+    lastShownAtRef.current = 0
+    pendingStatusRef.current = null
+    if (statusTimerRef.current) { clearTimeout(statusTimerRef.current); statusTimerRef.current = null }
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -77,7 +112,7 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
         lineBuffer = lines.pop() ?? ''
         for (const line of lines) {
           if (line.startsWith('s:')) {
-            setStatusMsg(line.slice(2))
+            showStatus(line.slice(2))
           } else {
             dataBuffer += line + '\n'
           }

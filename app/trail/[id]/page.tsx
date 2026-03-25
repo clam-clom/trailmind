@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ActionBar from '@/components/ActionBar'
@@ -32,12 +32,47 @@ export default function TrailDetailPage() {
   const [dopeError, setDopeError] = useState<string | null>(null)
   const [dopeStatus, setDopeStatus] = useState('')
 
+  // Throttled status: each message stays visible for at least 5s
+  const dopePendingRef = useRef<string | null>(null)
+  const dopeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dopeShownAtRef = useRef<number>(0)
+
+  const showDopeStatus = (msg: string) => {
+    const now = Date.now()
+    const elapsed = now - dopeShownAtRef.current
+    if (elapsed >= 5000 || dopeShownAtRef.current === 0) {
+      setDopeStatus(msg)
+      dopeShownAtRef.current = now
+      dopePendingRef.current = null
+      if (dopeTimerRef.current) { clearTimeout(dopeTimerRef.current); dopeTimerRef.current = null }
+    } else {
+      dopePendingRef.current = msg
+      if (!dopeTimerRef.current) {
+        dopeTimerRef.current = setTimeout(() => {
+          dopeTimerRef.current = null
+          if (dopePendingRef.current) {
+            setDopeStatus(dopePendingRef.current)
+            dopeShownAtRef.current = Date.now()
+            dopePendingRef.current = null
+          }
+        }, 5000 - elapsed)
+      }
+    }
+  }
+
+  useEffect(() => {
+    return () => { if (dopeTimerRef.current) clearTimeout(dopeTimerRef.current) }
+  }, [])
+
   const handleDopeSheetSubmit = async (answers: DopeSheetQuizAnswers) => {
     if (!trail) return
     setShowQuiz(false)
     setDopeLoading(true)
     setDopeError(null)
     setDopeStatus('')
+    dopeShownAtRef.current = 0
+    dopePendingRef.current = null
+    if (dopeTimerRef.current) { clearTimeout(dopeTimerRef.current); dopeTimerRef.current = null }
     try {
       const res = await fetch('/api/dope-sheet', {
         method: 'POST',
@@ -62,7 +97,7 @@ export default function TrailDetailPage() {
         lineBuffer = lines.pop() ?? ''
         for (const line of lines) {
           if (line.startsWith('s:')) {
-            setDopeStatus(line.slice(2))
+            showDopeStatus(line.slice(2))
           } else {
             dataBuffer += line + '\n'
           }
