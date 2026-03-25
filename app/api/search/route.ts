@@ -45,31 +45,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    const message = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: query,
-        },
-      ],
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        const s = (msg: string) => controller.enqueue(encoder.encode(`s:${msg}\n`))
+        try {
+          s('Searching Northeast trails...')
+          const message = await anthropic.messages.create({
+            model: 'claude-opus-4-6',
+            max_tokens: 4096,
+            system: SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: query }],
+          })
+          s('Ranking results by match...')
+          const content = message.content[0]
+          if (content.type !== 'text') throw new Error('Unexpected response format')
+          let jsonText = content.text.trim()
+          if (jsonText.startsWith('```')) {
+            jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+          }
+          // Validate JSON then send
+          const parsed = { trails: JSON.parse(jsonText), query }
+          controller.enqueue(encoder.encode(JSON.stringify(parsed)))
+        } catch (err) {
+          console.error('Search error:', err)
+          controller.enqueue(encoder.encode(`s:Something went wrong\n`))
+        } finally {
+          controller.close()
+        }
+      },
     })
 
-    const content = message.content[0]
-    if (content.type !== 'text') {
-      return NextResponse.json({ error: 'Unexpected response format' }, { status: 500 })
-    }
-
-    // Strip markdown code fences if present
-    let jsonText = content.text.trim()
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
-    }
-
-    const trails = JSON.parse(jsonText)
-    return NextResponse.json({ trails, query })
+    return new Response(readable, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' },
+    })
   } catch (err) {
     console.error('Search error:', err)
     return NextResponse.json({ error: 'Search failed' }, { status: 500 })

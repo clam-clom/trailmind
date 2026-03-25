@@ -141,18 +141,40 @@ Return JSON matching this exact structure:
   "safety_callouts": [list of safety notes for ${quiz.experience} experience level in ${quiz.season}]
 }`
 
-    // Stream the response — required for claude-opus-4-6 at 128k output tokens
-    const stream = anthropic.messages.stream({
-      model: 'claude-opus-4-6',
-      max_tokens: 128000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    })
-
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
+        const s = (msg: string) => controller.enqueue(encoder.encode(`s:${msg}\n`))
         try {
+          // Fire first status immediately, then start Claude streaming right away.
+          // Additional status messages are sent on a timer in parallel so the user
+          // sees something meaningful while the model generates.
+          s('Analyzing trail data...')
+
+          const stream = anthropic.messages.stream({
+            model: 'claude-opus-4-6',
+            max_tokens: 128000,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }],
+          })
+
+          // Status ticker — runs alongside the Claude stream
+          const TICKS: [number, string][] = [
+            [1500,  'Planning your daily breakdown...'],
+            [4000,  'Building gear list...'],
+            [8000,  'Writing food plan...'],
+            [13000, 'Drafting evacuation plan...'],
+            [19000, 'Adding links & resources...'],
+          ]
+          let tickerActive = true
+          const ticker = (async () => {
+            for (const [delay, msg] of TICKS) {
+              await new Promise(r => setTimeout(r, delay))
+              if (!tickerActive) break
+              s(msg)
+            }
+          })()
+
           for await (const chunk of stream) {
             if (
               chunk.type === 'content_block_delta' &&
@@ -161,6 +183,9 @@ Return JSON matching this exact structure:
               controller.enqueue(encoder.encode(chunk.delta.text))
             }
           }
+
+          tickerActive = false
+          await ticker
           controller.close()
         } catch (err) {
           console.error('DOPE sheet stream error:', err)

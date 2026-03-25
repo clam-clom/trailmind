@@ -30,12 +30,14 @@ export default function TrailDetailPage() {
   const [dopeSheet, setDopeSheet] = useState<DopeSheet | null>(null)
   const [dopeLoading, setDopeLoading] = useState(false)
   const [dopeError, setDopeError] = useState<string | null>(null)
+  const [dopeStatus, setDopeStatus] = useState('')
 
   const handleDopeSheetSubmit = async (answers: DopeSheetQuizAnswers) => {
     if (!trail) return
     setShowQuiz(false)
     setDopeLoading(true)
     setDopeError(null)
+    setDopeStatus('')
     try {
       const res = await fetch('/api/dope-sheet', {
         method: 'POST',
@@ -44,20 +46,31 @@ export default function TrailDetailPage() {
       })
       if (!res.ok) throw new Error('Generation failed')
 
-      // Read the streamed response and accumulate into a single string
-      const reader = res.body?.getReader()
+      // Read stream — s: lines are status updates, everything else is JSON
+      const reader = res.body!.getReader()
       const decoder = new TextDecoder()
-      let fullText = ''
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          fullText += decoder.decode(value, { stream: true })
+      let lineBuffer = ''
+      let dataBuffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        lineBuffer += chunk
+
+        const lines = lineBuffer.split('\n')
+        lineBuffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (line.startsWith('s:')) {
+            setDopeStatus(line.slice(2))
+          } else {
+            dataBuffer += line + '\n'
+          }
         }
       }
+      if (lineBuffer && !lineBuffer.startsWith('s:')) dataBuffer += lineBuffer
 
-      // Strip markdown fences if present
-      let json = fullText.trim()
+      let json = dataBuffer.trim()
       json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
       const sheet = JSON.parse(json)
       setDopeSheet(sheet)
@@ -289,10 +302,24 @@ export default function TrailDetailPage() {
           >
             <div
               className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: 'var(--teal)', borderTopColor: 'transparent' }}
+              style={{ borderColor: '#285010', borderTopColor: 'transparent' }}
             />
-            <p style={{ color: 'var(--text3)', fontFamily: 'var(--font-outfit), sans-serif', fontSize: '14px' }}>
+            <p style={{ fontFamily: 'Comfortaa, sans-serif', fontSize: '14px', color: '#4a6a18' }}>
               Building your DOPE Sheet...
+            </p>
+            {/* Single overwriting status line */}
+            <p
+              style={{
+                fontSize: '11px',
+                fontFamily: 'Comfortaa, sans-serif',
+                color: 'rgba(30,58,8,0.52)',
+                letterSpacing: '0.3px',
+                minHeight: '16px',
+                transition: 'opacity 0.2s',
+                opacity: dopeStatus ? 1 : 0,
+              }}
+            >
+              {dopeStatus}
             </p>
           </div>
         )}

@@ -19,6 +19,7 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
   const [query, setQuery] = useState(initialValue)
   const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0])
   const [loading, setLoading] = useState(false)
+  const [statusMsg, setStatusMsg] = useState('')
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const placeholderIdx = useRef(0)
@@ -39,6 +40,7 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
     e.preventDefault()
     if (!query.trim() || loading) return
     setLoading(true)
+    setStatusMsg('')
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -46,12 +48,40 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
         body: JSON.stringify({ query: query.trim() }),
       })
       if (!res.ok) throw new Error('Search failed')
-      const data = await res.json()
+
+      // Read stream — s: lines are status updates, everything else is JSON data
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let lineBuffer = ''
+      let dataBuffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        lineBuffer += chunk
+
+        // Process complete lines for live status updates
+        const lines = lineBuffer.split('\n')
+        lineBuffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (line.startsWith('s:')) {
+            setStatusMsg(line.slice(2))
+          } else {
+            dataBuffer += line + '\n'
+          }
+        }
+      }
+      // Flush remaining
+      if (lineBuffer && !lineBuffer.startsWith('s:')) dataBuffer += lineBuffer
+
+      const data = JSON.parse(dataBuffer.trim())
       sessionStorage.setItem('trailmind_results', JSON.stringify(data))
       sessionStorage.setItem('trailmind_query', query.trim())
       router.push(`/results?q=${encodeURIComponent(query.trim())}`)
     } catch {
       setLoading(false)
+      setStatusMsg('')
     }
   }
 
@@ -91,6 +121,22 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
           'Find trails →'
         )}
       </button>
+
+      {/* Single overwriting status line */}
+      <p
+        style={{
+          minHeight: '18px',
+          textAlign: 'center',
+          fontSize: '11px',
+          fontFamily: 'Comfortaa, sans-serif',
+          color: 'rgba(30,58,8,0.52)',
+          letterSpacing: '0.3px',
+          transition: 'opacity 0.2s',
+          opacity: loading && statusMsg ? 1 : 0,
+        }}
+      >
+        {statusMsg}
+      </p>
     </form>
   )
 }
