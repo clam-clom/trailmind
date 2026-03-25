@@ -3,6 +3,171 @@ import { NextRequest, NextResponse } from 'next/server'
 import { anthropic } from '@/lib/anthropic'
 import { Trail, DopeSheetQuizAnswers } from '@/lib/types'
 
+// ── Link verification ──────────────────────────────────────────────
+// Fetches each URL, reads the first chunk of page content, and checks
+// whether the page actually mentions the trail. Only verified relevant
+// links are kept. Claude-generated URLs are checked alongside
+// constructed fallbacks from known source patterns.
+
+interface VerifiedLinks {
+  trail: string[]
+  maps: string[]
+  trip_reports: string[]
+  river_data?: string[]
+}
+
+async function fetchSnippet(url: string, timeoutMs = 5000): Promise<string | null> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; TrailMind/1.0)',
+        Accept: 'text/html,application/xhtml+xml,*/*',
+      },
+    })
+    clearTimeout(timer)
+    if (!res.ok) return null
+    // Read only the first ~15 KB to check relevance
+    const reader = res.body?.getReader()
+    if (!reader) return null
+    const decoder = new TextDecoder()
+    let text = ''
+    while (text.length < 15000) {
+      const { done, value } = await reader.read()
+      if (done) break
+      text += decoder.decode(value, { stream: true })
+    }
+    reader.cancel()
+    return text
+  } catch {
+    clearTimeout(timer)
+    return null
+  }
+}
+
+function isRelevant(pageText: string, trail: Trail): boolean {
+  const lower = pageText.toLowerCase()
+  const nameWords = trail.name.toLowerCase().split(/[\s—–\-:]+/).filter(w => w.length > 3)
+  const regionWords = trail.region.toLowerCase().split(/[\s—–\-:]+/).filter(w => w.length > 3)
+  // Page must mention at least 2 significant words from the trail name OR region
+  const nameHits = nameWords.filter(w => lower.includes(w)).length
+  const regionHits = regionWords.filter(w => lower.includes(w)).length
+  return nameHits >= 2 || regionHits >= 2 || (nameHits >= 1 && regionHits >= 1)
+}
+
+async function verifyAndEnhanceLinks(
+  claudeLinks: Record<string, string[]> | undefined,
+  trail: Trail,
+  isKayak: boolean,
+  statusFn: (msg: string) => void,
+): Promise<VerifiedLinks> {
+  const result: VerifiedLinks = { trail: [], maps: [], trip_reports: [] }
+  if (isKayak) result.river_data = []
+
+  // ── 1. Collect candidate URLs ──
+  type Candidate = { url: string; cat: keyof VerifiedLinks }
+  const candidates: Candidate[] = []
+  const seen = new Set<string>()
+  const add = (url: string, cat: keyof VerifiedLinks) => {
+    if (!url || url.includes('[verify]') || seen.has(url)) return
+    seen.add(url)
+    candidates.push({ url, cat })
+  }
+
+  // Trail's own source URL (from search data — most trustworthy)
+  if (trail.source_url) add(trail.source_url, 'trail')
+
+  // Claude's links
+  if (claudeLinks) {
+    for (const u of claudeLinks.trail || []) add(u, 'trail')
+    for (const u of claudeLinks.maps || []) add(u, 'maps')
+    for (const u of claudeLinks.trip_reports || []) add(u, 'trip_reports')
+    if (isKayak) for (const u of claudeLinks.river_data || []) add(u, 'river_data')
+  }
+
+  // ── 2. Constructed fallback URLs from known patterns ──
+  const q = encodeURIComponent(trail.name)
+  const qRegion = encodeURIComponent(trail.region)
+
+  // AllTrails search (always works)
+  add(`https://www.alltrails.com/search?q=${q}`, 'trail')
+  // Google Maps search
+  add(`https://www.google.com/maps/search/${q}+${encodeURIComponent(trail.state)}`, 'maps')
+
+  // Source-specific fallbacks
+  if (trail.source === 'NPS' || trail.region.toLowerCase().includes('national')) {
+    add(`https://www.nps.gov/findapark/index.htm`, 'trail')
+  }
+  if (trail.source === 'NYNJTC') {
+    add(`https://www.nynjtc.org/search/node/${q}`, 'trail')
+  }
+  if (trail.source === 'NYS DEC' || trail.state === 'NY') {
+    add(`https://www.dec.ny.gov/outdoor/hiking`, 'trail')
+  }
+  if (trail.state === 'PA') {
+    add(`https://www.dcnr.pa.gov/StateForests/FindAForest/Pages/default.aspx`, 'trail')
+  }
+  if (trail.state === 'CT') {
+    add(`https://portal.ct.gov/DEEP/State-Parks/Listing-of-State-Parks`, 'trail')
+  }
+
+  if (isKayak) {
+    add(`https://www.americanwhitewater.org/content/River/search/.json?river=${q}`, 'river_data')
+    add('https://www.americanwhitewater.org/content/River/view/river-index', 'river_data')
+    // USGS gauges for the state
+    const stateCode = { NY: 'ny', NJ: 'nj', PA: 'pa', CT: 'ct' }[trail.state] || 'ny'
+    add(`https://waterdata.usgs.gov/nwis/rt?search_site_no=&search_station_nm=${q}&State=${stateCode}`, 'river_data')
+  }
+
+  // YouTube trip report search
+  add(`https://www.youtube.com/results?search_query=${q}+trip+report`, 'trip_reports')
+  // AllTrails reviews
+  add(`https://www.alltrails.com/search?q=${q}`, 'trip_reports')
+
+  statusFn('Verifying links & resources...')
+
+  // ── 3. Verify all candidates in parallel ──
+  const verifyResults = await Promise.allSettled(
+    candidates.map(async ({ url, cat }) => {
+      const snippet = await fetchSnippet(url)
+      if (snippet === null) return { url, cat, status: 'dead' as const }
+      // Search URLs and index pages are always relevant if they load
+      const isSearchOrIndex =
+        url.includes('search') || url.includes('index') ||
+        url.includes('results') || url.includes('findapark') ||
+        url.includes('google.com/maps') || url.includes('youtube.com')
+      if (isSearchOrIndex) return { url, cat, status: 'relevant' as const }
+      // For specific pages, check content relevance
+      if (isRelevant(snippet, trail)) return { url, cat, status: 'relevant' as const }
+      return { url, cat, status: 'irrelevant' as const }
+    })
+  )
+
+  // ── 4. Build verified links ──
+  for (const r of verifyResults) {
+    if (r.status !== 'fulfilled') continue
+    const { url, cat, status } = r.value
+    if (status === 'relevant' && result[cat]) {
+      result[cat]!.push(url)
+    }
+  }
+
+  // Ensure at least the trail source URL is included even if fetch failed
+  // (the user can try it themselves)
+  if (result.trail.length === 0 && trail.source_url) {
+    result.trail.push(trail.source_url)
+  }
+
+  statusFn(`Verified ${[...result.trail, ...result.maps, ...result.trip_reports, ...(result.river_data || [])].length} links`)
+
+  return result
+}
+
+// ── Main route ─────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const { trail, quiz }: { trail: Trail; quiz: DopeSheetQuizAnswers } = await req.json()
@@ -199,10 +364,21 @@ Return JSON matching this exact structure:
             }
           }
 
-          // Strip markdown fences, validate, send complete JSON
+          // Strip markdown fences, validate JSON
           let json = accumulated.trim()
           json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
           const sheet = JSON.parse(json)
+
+          // Verify & enhance links — fetches each URL, checks page content
+          // for relevance to the specific trail, replaces hallucinated links
+          const verifiedLinks = await verifyAndEnhanceLinks(
+            sheet.links,
+            trail,
+            isKayak,
+            s,
+          )
+          sheet.links = verifiedLinks
+
           controller.enqueue(encoder.encode(JSON.stringify({ sheet })))
           controller.close()
         } catch (err) {
