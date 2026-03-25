@@ -141,8 +141,8 @@ Return JSON matching this exact structure:
 }`
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
+      model: 'claude-opus-4-5',
+      max_tokens: 32000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
