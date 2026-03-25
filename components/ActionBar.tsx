@@ -14,9 +14,9 @@ interface ActionBarProps {
 type ActivePanel = 'critique' | 'review' | null
 
 const BTN_BASE: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.38)',
-  border: '1.5px solid rgba(255,255,255,0.72)',
-  color: '#182408',
+  background: '#edf1e4',
+  border: '1px solid #c0ceac',
+  color: '#0D3323',
 }
 
 export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
@@ -111,17 +111,17 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
       <div
         className="fixed bottom-0 left-0 right-0 z-40 flex justify-center py-4 px-4 no-print"
         style={{
-          background: 'rgba(220,235,100,0.88)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderTop: '1px solid rgba(255,255,255,0.6)',
+          background: 'rgba(232,237,218,0.95)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          borderTop: '1px solid #c0ceac',
         }}
       >
         <div
           className="px-6 py-3 rounded-full text-sm font-semibold"
           style={{
-            background: '#285010',
-            color: '#fff',
+            background: '#0D3323',
+            color: '#FFBA04',
             fontFamily: 'Comfortaa, sans-serif',
           }}
         >
@@ -136,10 +136,10 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
       <div
         className="fixed bottom-0 left-0 right-0 z-40 no-print"
         style={{
-          background: 'rgba(220,235,100,0.88)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderTop: '1px solid rgba(255,255,255,0.6)',
+          background: 'rgba(232,237,218,0.95)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          borderTop: '1px solid #c0ceac',
         }}
       >
         {/* DOPE Sheet row */}
@@ -148,13 +148,13 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
             onClick={onDopeSheetClick}
             className="pill-btn w-full max-w-sm py-2.5 text-sm justify-center"
             style={{
-              background: 'rgba(255,255,255,0.45)',
-              border: '1.5px solid rgba(255,255,255,0.8)',
-              color: '#182408',
+              background: '#edf1e4',
+              border: '1px solid #c0ceac',
+              color: '#0D3323',
               fontFamily: 'Comfortaa, sans-serif',
             }}
           >
-            📋 Generate DOPE Sheet
+            Generate DOPE Sheet
           </button>
         </div>
 
@@ -165,7 +165,7 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
             className="pill-btn px-4 py-2.5 text-sm flex-1 max-w-[100px] justify-center"
             style={BTN_BASE}
           >
-            ♡ Save
+            Save
           </button>
 
           <button
@@ -173,7 +173,7 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
             className="pill-btn px-4 py-2.5 text-sm flex-1 max-w-[110px] justify-center"
             style={BTN_BASE}
           >
-            ↺ Not quite
+            Not quite
           </button>
 
           <button
@@ -187,9 +187,9 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
           <button
             onClick={handlePass}
             className="pill-btn px-4 py-2.5 text-sm flex-1 max-w-[70px] justify-center"
-            style={{ ...BTN_BASE, color: '#547a20' }}
+            style={{ ...BTN_BASE, color: '#5a7860' }}
           >
-            ✕ Pass
+            Pass
           </button>
         </div>
       </div>

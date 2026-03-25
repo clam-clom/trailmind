@@ -27,33 +27,33 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
   const DIFFICULTY_LABELS = ['', 'Very easy', 'Easy', 'Moderate', 'Hard', 'Brutal']
 
   const inputStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.45)',
-    border: '1.5px solid rgba(255,255,255,0.72)',
-    color: '#182408',
+    background: '#edf1e4',
+    border: '1px solid #c0ceac',
+    color: '#0D3323',
     fontFamily: 'Comfortaa, sans-serif',
   }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(24,36,8,0.4)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(13,51,35,0.4)', backdropFilter: 'blur(6px)' }}
       onClick={onClose}
     >
       <div
-        className="frost-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+        className="tm-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3
               className="text-lg"
-              style={{ fontFamily: 'Comfortaa, sans-serif', fontWeight: 700, color: '#182408' }}
+              style={{ fontFamily: 'var(--font-playfair), Playfair Display, serif', fontWeight: 700, color: '#0D3323' }}
             >
               How was it?
             </h3>
             <p
               className="text-sm"
-              style={{ color: '#547a20', fontFamily: 'Comfortaa, sans-serif', fontWeight: 300 }}
+              style={{ color: '#4a6858', fontFamily: 'Comfortaa, sans-serif', fontWeight: 300 }}
             >
               {trailName}
             </p>
@@ -61,7 +61,7 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
           <button
             onClick={onClose}
             className="text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full"
-            style={{ color: '#547a20', background: 'rgba(255,255,255,0.4)' }}
+            style={{ color: '#5a7860', background: '#edf1e4' }}
           >
             ×
           </button>
@@ -69,12 +69,7 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
 
         {/* Difficulty */}
         <div className="mb-5">
-          <label
-            className="block mb-2 uppercase"
-            style={{ fontSize: '9px', letterSpacing: '1px', color: '#547a20', fontFamily: 'Comfortaa, sans-serif' }}
-          >
-            How hard was it really?
-          </label>
+          <label className="label-caps block mb-2">How hard was it really?</label>
           <div className="flex items-center gap-3">
             <input
               type="range"
@@ -83,11 +78,11 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
               value={difficulty}
               onChange={(e) => setDifficulty(Number(e.target.value))}
               className="flex-1"
-              style={{ accentColor: '#285010' }}
+              style={{ accentColor: '#0D3323' }}
             />
             <span
               className="text-sm w-24 text-right"
-              style={{ color: '#4a6a18', fontFamily: 'Comfortaa, sans-serif', fontWeight: 600 }}
+              style={{ color: '#4a6858', fontFamily: 'Comfortaa, sans-serif', fontWeight: 600 }}
             >
               {DIFFICULTY_LABELS[difficulty]}
             </span>
@@ -96,19 +91,14 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
 
         {/* Stars */}
         <div className="mb-5">
-          <label
-            className="block mb-2 uppercase"
-            style={{ fontSize: '9px', letterSpacing: '1px', color: '#547a20', fontFamily: 'Comfortaa, sans-serif' }}
-          >
-            Overall rating
-          </label>
+          <label className="label-caps block mb-2">Overall rating</label>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
               <button
                 key={star}
                 onClick={() => setRating(rating === star ? null : star)}
                 className="text-2xl transition-all"
-                style={{ color: rating && star <= rating ? '#a06800' : 'rgba(80,120,20,0.25)' }}
+                style={{ color: rating && star <= rating ? '#FFBA04' : 'rgba(13,51,35,0.2)' }}
               >
                 ★
               </button>
@@ -118,12 +108,7 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
 
         {/* What did you love */}
         <div className="mb-4">
-          <label
-            className="block mb-2 uppercase"
-            style={{ fontSize: '9px', letterSpacing: '1px', color: '#547a20', fontFamily: 'Comfortaa, sans-serif' }}
-          >
-            What did you love?
-          </label>
+          <label className="label-caps block mb-2">What did you love?</label>
           <textarea
             value={loved}
             onChange={(e) => setLoved(e.target.value)}
@@ -136,12 +121,7 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
 
         {/* What disappointed */}
         <div className="mb-5">
-          <label
-            className="block mb-2 uppercase"
-            style={{ fontSize: '9px', letterSpacing: '1px', color: '#547a20', fontFamily: 'Comfortaa, sans-serif' }}
-          >
-            Anything disappoint?
-          </label>
+          <label className="label-caps block mb-2">Anything disappoint?</label>
           <textarea
             value={disliked}
             onChange={(e) => setDisliked(e.target.value)}
@@ -154,25 +134,14 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
 
         {/* Would repeat */}
         <div className="mb-6">
-          <label
-            className="block mb-2 uppercase"
-            style={{ fontSize: '9px', letterSpacing: '1px', color: '#547a20', fontFamily: 'Comfortaa, sans-serif' }}
-          >
-            Would you do it again?
-          </label>
+          <label className="label-caps block mb-2">Would you do it again?</label>
           <div className="flex gap-3">
             {[true, false].map((val) => (
               <button
                 key={String(val)}
                 onClick={() => setWouldRepeat(wouldRepeat === val ? null : val)}
-                className="pill-btn px-6 py-2 text-sm transition-all"
-                style={{
-                  background: wouldRepeat === val ? '#285010' : 'rgba(255,255,255,0.45)',
-                  color: wouldRepeat === val ? '#fff' : '#182408',
-                  border: '1.5px solid',
-                  borderColor: wouldRepeat === val ? '#285010' : 'rgba(255,255,255,0.72)',
-                  fontFamily: 'Comfortaa, sans-serif',
-                }}
+                className={wouldRepeat === val ? 'chip-active pill-btn px-6 py-2 text-sm' : 'chip-inactive pill-btn px-6 py-2 text-sm'}
+                style={{ cursor: 'pointer', transition: 'all 0.15s' }}
               >
                 {val ? 'Yes, definitely' : 'Probably not'}
               </button>
@@ -184,7 +153,7 @@ export default function ReviewModal({ trailName, onSubmit, onClose }: ReviewModa
           onClick={() => onSubmit({ difficulty, loved, disliked, would_repeat: wouldRepeat, rating })}
           className="pill-btn btn-green w-full py-3 justify-center text-sm"
         >
-          Save review ✓
+          Save review
         </button>
       </div>
     </div>

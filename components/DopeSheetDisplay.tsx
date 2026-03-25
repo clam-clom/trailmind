@@ -16,7 +16,6 @@ interface DopeSheetDisplayProps {
   trailName: string
 }
 
-// Highlight [verify] tokens in amber
 function VerifyText({ text }: { text: string }) {
   if (!text) return null
   const parts = text.split(/(\[verify\])/gi)
@@ -27,7 +26,7 @@ function VerifyText({ text }: { text: string }) {
           <span
             key={i}
             className="px-1 rounded text-xs font-medium"
-            style={{ background: 'rgba(160,96,0,0.1)', color: '#a06800' }}
+            style={{ background: 'rgba(252,169,68,0.2)', color: '#6e3e00' }}
           >
             [verify]
           </span>
@@ -41,39 +40,33 @@ function VerifyText({ text }: { text: string }) {
 
 function Section({
   title,
-  icon,
   children,
   defaultOpen = true,
   noPrint = false,
 }: {
   title: string
-  icon: string
   children: React.ReactNode
   defaultOpen?: boolean
   noPrint?: boolean
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className={`frost-card mb-4 overflow-hidden ${noPrint ? 'no-print' : ''}`}>
+    <div className={`tm-card mb-4 overflow-hidden ${noPrint ? 'no-print' : ''}`}>
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-5 py-4 text-left no-print"
         style={{ background: 'transparent' }}
       >
-        <div className="flex items-center gap-2">
-          <span>{icon}</span>
-          <span
-            className="font-medium"
-            style={{ fontFamily: 'Comfortaa, sans-serif', color: '#182408', fontSize: '15px' }}
-          >
-            {title}
-          </span>
-        </div>
-        <span style={{ color: '#547a20', fontSize: '12px' }}>{open ? '▲' : '▼'}</span>
+        <span
+          className="font-medium"
+          style={{ fontFamily: 'var(--font-playfair), Playfair Display, serif', color: '#0D3323', fontSize: '15px', fontWeight: 700 }}
+        >
+          {title}
+        </span>
+        <span style={{ color: '#5a7860', fontSize: '12px' }}>{open ? '▲' : '▼'}</span>
       </button>
-      {/* Print always shows title */}
-      <div className="print-only px-5 pt-4 pb-1 font-semibold" style={{ fontSize: '13px', color: '#182408', display: 'none' }}>
-        {icon} {title}
+      <div className="print-only px-5 pt-4 pb-1 font-semibold" style={{ fontSize: '13px', color: '#0D3323', display: 'none' }}>
+        {title}
       </div>
       {open && <div className="px-5 pb-5">{children}</div>}
     </div>
@@ -82,9 +75,9 @@ function Section({
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline gap-2 py-1.5 border-b" style={{ borderColor: 'rgba(80,120,20,0.18)' }}>
+    <div className="flex items-baseline gap-2 py-1.5 border-b" style={{ borderColor: '#bfcaac' }}>
       <span className="label-caps w-36 shrink-0">{label}</span>
-      <span style={{ color: '#4a6a18', fontSize: '14px' }}>
+      <span style={{ color: '#4a6858', fontSize: '14px' }}>
         <VerifyText text={value} />
       </span>
     </div>
@@ -96,51 +89,51 @@ function DayCard({ day }: { day: DopeSheetDay }) {
   return (
     <div
       className="rounded-xl p-4 mb-3"
-      style={{ background: 'rgba(148,204,48,0.08)', border: '1px solid rgba(255,255,255,0.72)' }}
+      style={{ background: '#edf1e4', border: '1px solid #c0ceac' }}
     >
       <p
         className="font-medium mb-3"
-        style={{ fontFamily: 'Comfortaa, sans-serif', color: '#182408', fontSize: '15px' }}
+        style={{ fontFamily: 'var(--font-playfair), Playfair Display, serif', color: '#0D3323', fontSize: '15px', fontWeight: 700 }}
       >
         <VerifyText text={day.label} />
       </p>
       <div className="grid grid-cols-2 gap-x-4 text-sm">
         <div className="py-1">
           <span className="label-caps block mb-0.5">Distance</span>
-          <span style={{ color: '#4a6a18' }}>{day.total_distance_miles} miles</span>
+          <span style={{ color: '#4a6858' }}>{day.total_distance_miles} miles</span>
         </div>
         {!isKayak && day.elevation_gain_ft > 0 && (
           <div className="py-1">
             <span className="label-caps block mb-0.5">Elevation Gain</span>
-            <span style={{ color: '#4a6a18' }}>{day.elevation_gain_ft.toLocaleString()} ft</span>
+            <span style={{ color: '#4a6858' }}>{day.elevation_gain_ft.toLocaleString()} ft</span>
           </div>
         )}
         {isKayak && day.class_rating && (
           <div className="py-1">
             <span className="label-caps block mb-0.5">Class</span>
-            <span style={{ color: '#4a6a18' }}>{day.class_rating}</span>
+            <span style={{ color: '#4a6858' }}>{day.class_rating}</span>
           </div>
         )}
         <div className="py-1">
           <span className="label-caps block mb-0.5">Expected Time</span>
-          <span style={{ color: '#4a6a18' }}>
+          <span style={{ color: '#4a6858' }}>
             <VerifyText text={day.expected_time} />
           </span>
         </div>
         <div className="py-1">
           <span className="label-caps block mb-0.5">Allotted Time</span>
-          <span style={{ color: '#1e3c0a', fontWeight: 500 }}>
+          <span style={{ color: '#0D3323', fontWeight: 500 }}>
             <VerifyText text={day.allotted_time} />
           </span>
         </div>
         <div className="py-1">
           <span className="label-caps block mb-0.5">Pace</span>
-          <span style={{ color: '#4a6a18' }}>{day.expected_pace_mph} mph</span>
+          <span style={{ color: '#4a6858' }}>{day.expected_pace_mph} mph</span>
         </div>
         {isKayak && day.put_in && (
           <div className="py-1">
             <span className="label-caps block mb-0.5">Put-in</span>
-            <span style={{ color: '#4a6a18' }}>
+            <span style={{ color: '#4a6858' }}>
               <VerifyText text={day.put_in} />
             </span>
           </div>
@@ -148,7 +141,7 @@ function DayCard({ day }: { day: DopeSheetDay }) {
         {isKayak && day.take_out && (
           <div className="py-1">
             <span className="label-caps block mb-0.5">Take-out</span>
-            <span style={{ color: '#4a6a18' }}>
+            <span style={{ color: '#4a6858' }}>
               <VerifyText text={day.take_out} />
             </span>
           </div>
@@ -157,26 +150,26 @@ function DayCard({ day }: { day: DopeSheetDay }) {
       {day.campsite && (
         <div
           className="mt-3 px-3 py-2 rounded-lg text-sm"
-          style={{ background: 'rgba(148,204,48,0.18)', color: '#1e3c0a' }}
+          style={{ background: 'rgba(176,176,37,0.12)', color: '#0D3323' }}
         >
-          ⛺ Campsite: <VerifyText text={day.campsite} />
+          Campsite: <VerifyText text={day.campsite} />
         </div>
       )}
       {day.bailout_marker && (
         <div
           className="mt-2 px-3 py-2 rounded-lg text-sm"
-          style={{ background: 'rgba(160,96,0,0.1)', color: '#4a6a18' }}
+          style={{ background: 'rgba(252,169,68,0.15)', color: '#4a6858' }}
         >
-          ⚠ Turn back if you've passed: <VerifyText text={day.bailout_marker} />
+          Turn back if you&apos;ve passed: <VerifyText text={day.bailout_marker} />
         </div>
       )}
       {day.breaks.length > 0 && (
         <div className="mt-3">
           <span className="label-caps block mb-1.5">Break schedule</span>
-          <ul className="text-sm space-y-0.5" style={{ color: '#4a6a18' }}>
+          <ul className="text-sm space-y-0.5" style={{ color: '#4a6858' }}>
             {day.breaks.map((b, i) => (
               <li key={i} className="flex gap-1.5">
-                <span style={{ color: '#4a8a20' }}>·</span>
+                <span style={{ color: '#3A5A4C' }}>·</span>
                 <VerifyText text={b} />
               </li>
             ))}
@@ -191,22 +184,22 @@ function GearSection({ gear }: { gear: GearList }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <p className="label-caps mb-3" style={{ color: '#547a20' }}>Personal (each person)</p>
+        <p className="label-caps mb-3">Personal (each person)</p>
         <ul className="space-y-1.5">
           {gear.personal.map((item, i) => (
-            <li key={i} className="flex gap-2 text-sm" style={{ color: '#4a6a18' }}>
-              <span style={{ color: '#285010', marginTop: '2px' }}>✓</span>
+            <li key={i} className="flex gap-2 text-sm" style={{ color: '#4a6858' }}>
+              <span style={{ color: '#0D3323', marginTop: '2px' }}>✓</span>
               <VerifyText text={item} />
             </li>
           ))}
         </ul>
       </div>
       <div>
-        <p className="label-caps mb-3" style={{ color: '#547a20' }}>Shared (group)</p>
+        <p className="label-caps mb-3">Shared (group)</p>
         <ul className="space-y-1.5">
           {gear.shared.map((item, i) => (
-            <li key={i} className="flex gap-2 text-sm" style={{ color: '#4a6a18' }}>
-              <span style={{ color: '#4a8a20', marginTop: '2px' }}>◎</span>
+            <li key={i} className="flex gap-2 text-sm" style={{ color: '#4a6858' }}>
+              <span style={{ color: '#3A5A4C', marginTop: '2px' }}>◎</span>
               <VerifyText text={item} />
             </li>
           ))}
@@ -224,9 +217,9 @@ function FoodSection({ food }: { food: FoodPlan }) {
           <div
             key={day.day}
             className="rounded-xl p-4"
-            style={{ background: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.72)' }}
+            style={{ background: '#edf1e4', border: '1px solid #c0ceac' }}
           >
-            <p className="label-caps mb-2.5" style={{ color: '#1e3c0a' }}>
+            <p className="label-caps mb-2.5" style={{ color: '#0D3323' }}>
               Day {day.day}
             </p>
             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -238,7 +231,7 @@ function FoodSection({ food }: { food: FoodPlan }) {
               ].map(({ label, value }) => (
                 <div key={label}>
                   <span className="label-caps block mb-0.5">{label}</span>
-                  <span style={{ color: '#4a6a18' }}>
+                  <span style={{ color: '#4a6858' }}>
                     <VerifyText text={value} />
                   </span>
                 </div>
@@ -250,22 +243,22 @@ function FoodSection({ food }: { food: FoodPlan }) {
       {food.totals.length > 0 && (
         <div
           className="rounded-xl p-4 mb-3"
-          style={{ background: 'rgba(160,96,0,0.1)', border: '1px solid rgba(232,160,32,0.2)' }}
+          style={{ background: 'rgba(252,169,68,0.12)', border: '1px solid rgba(252,169,68,0.3)' }}
         >
-          <p className="label-caps mb-2" style={{ color: '#a06800' }}>
+          <p className="label-caps mb-2" style={{ color: '#6e3e00' }}>
             Total meals to pack
           </p>
-          <ul className="text-sm space-y-1" style={{ color: '#4a6a18' }}>
+          <ul className="text-sm space-y-1" style={{ color: '#4a6858' }}>
             {food.totals.map((t, i) => (
               <li key={i} className="flex gap-1.5">
-                <span style={{ color: '#a06800' }}>·</span> {t}
+                <span style={{ color: '#FCA944' }}>·</span> {t}
               </li>
             ))}
           </ul>
         </div>
       )}
       {food.weight_guideline && (
-        <p className="text-sm" style={{ color: '#547a20' }}>
+        <p className="text-sm" style={{ color: '#5a7860' }}>
           Weight guideline: {food.weight_guideline}
         </p>
       )}
@@ -278,7 +271,7 @@ function EvacSection({ evac }: { evac: EvacPlan }) {
     <div>
       <div className="mb-4">
         {evac.general.map((line, i) => (
-          <p key={i} className="text-sm mb-1.5" style={{ color: '#4a6a18' }}>
+          <p key={i} className="text-sm mb-1.5" style={{ color: '#4a6858' }}>
             <VerifyText text={line} />
           </p>
         ))}
@@ -288,10 +281,10 @@ function EvacSection({ evac }: { evac: EvacPlan }) {
           <div
             key={s.day}
             className="rounded-xl p-4"
-            style={{ background: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.72)' }}
+            style={{ background: '#edf1e4', border: '1px solid #c0ceac' }}
           >
-            <p className="label-caps mb-3" style={{ color: '#547a20' }}>Day {s.day}</p>
-            <div className="text-sm space-y-2" style={{ color: '#4a6a18' }}>
+            <p className="label-caps mb-3">Day {s.day}</p>
+            <div className="text-sm space-y-2" style={{ color: '#4a6858' }}>
               <div>
                 <span className="font-medium">Before </span>
                 <VerifyText text={s.before_marker} />
@@ -305,19 +298,19 @@ function EvacSection({ evac }: { evac: EvacPlan }) {
               <div className="flex items-center gap-2 flex-wrap pt-1">
                 <span
                   className="px-2 py-0.5 rounded-full text-xs"
-                  style={{ background: 'rgba(148,204,48,0.18)', color: '#1e3c0a' }}
+                  style={{ background: 'rgba(176,176,37,0.15)', color: '#0D3323' }}
                 >
                   Exit: <VerifyText text={s.nearest_exit} />
                 </span>
                 <span
                   className="px-2 py-0.5 rounded-full text-xs"
                   style={{
-                    background: s.cell_service === 'Good' ? 'rgba(99,136,114,0.12)'
-                      : s.cell_service === 'Patchy' ? 'rgba(160,96,0,0.1)'
-                      : 'rgba(200,100,50,0.1)',
-                    color: s.cell_service === 'Good' ? '#1e3c0a'
-                      : s.cell_service === 'Patchy' ? '#a06800'
-                      : '#a05010',
+                    background: s.cell_service === 'Good' ? 'rgba(13,51,35,0.1)'
+                      : s.cell_service === 'Patchy' ? 'rgba(252,169,68,0.15)'
+                      : 'rgba(252,100,50,0.12)',
+                    color: s.cell_service === 'Good' ? '#0D3323'
+                      : s.cell_service === 'Patchy' ? '#6e3e00'
+                      : '#6e3e00',
                   }}
                 >
                   Cell: {s.cell_service}
@@ -332,23 +325,23 @@ function EvacSection({ evac }: { evac: EvacPlan }) {
 }
 
 const CLASS_COLORS: Record<string, { bg: string; text: string }> = {
-  I: { bg: 'rgba(148,199,180,0.2)', text: '#3d6858' },
-  II: { bg: 'rgba(148,199,180,0.3)', text: '#2d5848' },
-  III: { bg: 'rgba(232,160,32,0.15)', text: '#b07010' },
-  IV: { bg: 'rgba(217,106,16,0.15)', text: '#a05010' },
-  V: { bg: 'rgba(200,50,50,0.12)', text: '#903030' },
+  I: { bg: 'rgba(176,176,37,0.15)', text: '#3A5A4C' },
+  II: { bg: 'rgba(176,176,37,0.25)', text: '#0D3323' },
+  III: { bg: 'rgba(253,232,112,0.4)', text: '#3a3000' },
+  IV: { bg: 'rgba(252,169,68,0.3)', text: '#4a1e00' },
+  V: { bg: 'rgba(200,50,50,0.15)', text: '#903030' },
 }
 
 function RapidsSection({ rapids }: { rapids: Rapid[] }) {
   return (
     <div className="space-y-3">
       {rapids.map((r, i) => {
-        const colors = CLASS_COLORS[r.class] || { bg: 'rgba(255,255,255,0.35)', text: '#4a6a18' }
+        const colors = CLASS_COLORS[r.class] || { bg: '#edf1e4', text: '#4a6858' }
         return (
           <div
             key={i}
             className="rounded-xl p-4"
-            style={{ background: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.72)' }}
+            style={{ background: '#edf1e4', border: '1px solid #c0ceac' }}
           >
             <div className="flex items-center gap-2 mb-2">
               <span
@@ -359,20 +352,20 @@ function RapidsSection({ rapids }: { rapids: Rapid[] }) {
               </span>
               <span
                 className="font-medium text-sm"
-                style={{ fontFamily: 'Comfortaa, sans-serif', color: '#182408' }}
+                style={{ fontFamily: 'var(--font-playfair), Playfair Display, serif', color: '#0D3323' }}
               >
                 <VerifyText text={r.name} />
               </span>
               {r.mile && (
-                <span className="text-xs ml-auto" style={{ color: '#547a20' }}>
+                <span className="text-xs ml-auto" style={{ color: '#5a7860' }}>
                   Mile {r.mile}
                 </span>
               )}
             </div>
-            <p className="text-sm mb-2" style={{ color: '#4a6a18' }}>
+            <p className="text-sm mb-2" style={{ color: '#4a6858' }}>
               <VerifyText text={r.description} />
             </p>
-            <div className="flex items-center gap-3 flex-wrap text-xs" style={{ color: '#547a20' }}>
+            <div className="flex items-center gap-3 flex-wrap text-xs" style={{ color: '#5a7860' }}>
               <span>Portage: <VerifyText text={r.portage} /></span>
               <span>· Source: <VerifyText text={r.source} /></span>
             </div>
@@ -402,14 +395,14 @@ function LinksSection({ links, isKayak }: { links: DopeSheetLinks; isKayak: bool
               return (
                 <li key={i} className="text-sm">
                   {isVerify ? (
-                    <span style={{ color: '#a06800' }}>[verify URL]</span>
+                    <span style={{ color: '#6e3e00' }}>[verify URL]</span>
                   ) : (
                     <a
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="underline break-all"
-                      style={{ color: '#1e3c0a' }}
+                      style={{ color: '#0D3323' }}
                     >
                       {url}
                     </a>
@@ -437,15 +430,13 @@ export default function DopeSheetDisplay({ sheet, trailName }: DopeSheetDisplayP
       {/* Sheet title */}
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="label-caps mb-0.5" style={{ color: '#4a8a20' }}>
-            DOPE Sheet
-          </p>
+          <p className="label-caps mb-0.5">DOPE Sheet</p>
           <h2
             style={{
-              fontFamily: 'Comfortaa, sans-serif',
-              fontWeight: 400,
+              fontFamily: 'var(--font-playfair), Playfair Display, serif',
+              fontWeight: 700,
               fontSize: 'clamp(20px, 3vw, 26px)',
-              color: '#182408',
+              color: '#0D3323',
             }}
           >
             {sheet.header.trail_name}
@@ -455,28 +446,28 @@ export default function DopeSheetDisplay({ sheet, trailName }: DopeSheetDisplayP
           onClick={handlePrint}
           className="pill-btn px-4 py-2 text-sm no-print"
           style={{
-            background: 'rgba(255,255,255,0.35)',
-            border: '1.5px solid rgba(255,255,255,0.72)',
-            color: '#4a6a18',
+            background: '#edf1e4',
+            border: '1px solid #c0ceac',
+            color: '#4a6858',
           }}
         >
-          ⬇ Save as PDF
+          Save as PDF
         </button>
       </div>
 
       {/* Safety callouts */}
       {sheet.safety_callouts.length > 0 && (
         <div
-          className="frost-card p-4 mb-4"
-          style={{ borderLeft: '3px solid #a06800' }}
+          className="tm-card p-4 mb-4"
+          style={{ borderLeft: '3px solid #FCA944' }}
         >
-          <p className="label-caps mb-2" style={{ color: '#a06800' }}>
-            ⚠ Safety notes
+          <p className="label-caps mb-2" style={{ color: '#6e3e00' }}>
+            Safety notes
           </p>
           <ul className="space-y-1.5">
             {sheet.safety_callouts.map((note, i) => (
-              <li key={i} className="text-sm flex gap-2" style={{ color: '#4a6a18' }}>
-                <span style={{ color: '#a06800' }}>·</span>
+              <li key={i} className="text-sm flex gap-2" style={{ color: '#4a6858' }}>
+                <span style={{ color: '#FCA944' }}>·</span>
                 <VerifyText text={note} />
               </li>
             ))}
@@ -485,7 +476,7 @@ export default function DopeSheetDisplay({ sheet, trailName }: DopeSheetDisplayP
       )}
 
       {/* Header */}
-      <Section title="Overview" icon="📍" defaultOpen>
+      <Section title="Overview" defaultOpen>
         <div>
           <StatRow label="Trail / Route" value={sheet.header.trail_name} />
           <StatRow label="Total Distance" value={sheet.header.total_distance} />
@@ -502,58 +493,50 @@ export default function DopeSheetDisplay({ sheet, trailName }: DopeSheetDisplayP
         </div>
       </Section>
 
-      {/* Per-day breakdown */}
-      <Section title="Daily Breakdown" icon="📅" defaultOpen>
+      <Section title="Daily Breakdown" defaultOpen>
         {sheet.days.map((day) => (
           <DayCard key={day.day} day={day} />
         ))}
       </Section>
 
-      {/* Gear */}
-      <Section title="Gear List" icon="🎒" defaultOpen={false}>
+      <Section title="Gear List" defaultOpen={false}>
         <GearSection gear={sheet.gear_list} />
       </Section>
 
-      {/* Food plan (overnight only) */}
       {isOvernight && sheet.food_plan && (
-        <Section title="Food Plan" icon="🍽" defaultOpen={false}>
+        <Section title="Food Plan" defaultOpen={false}>
           <FoodSection food={sheet.food_plan} />
         </Section>
       )}
 
-      {/* Water & snacks (day trips) */}
       {!isOvernight && sheet.water_and_snacks && (
-        <Section title="Water & Snacks" icon="💧" defaultOpen={false}>
-          <p className="text-sm" style={{ color: '#4a6a18', lineHeight: 1.7 }}>
+        <Section title="Water & Snacks" defaultOpen={false}>
+          <p className="text-sm" style={{ color: '#4a6858', lineHeight: 1.7 }}>
             <VerifyText text={sheet.water_and_snacks} />
           </p>
         </Section>
       )}
 
-      {/* Evac plan */}
-      <Section title="Evacuation Plan" icon="🚨" defaultOpen={false}>
+      <Section title="Evacuation Plan" defaultOpen={false}>
         <EvacSection evac={sheet.evac_plan} />
       </Section>
 
-      {/* Rapids (kayak only) */}
       {isKayak && sheet.rapids && sheet.rapids.length > 0 && (
-        <Section title="Rapids Breakdown" icon="🌊" defaultOpen={false}>
+        <Section title="Rapids Breakdown" defaultOpen={false}>
           <RapidsSection rapids={sheet.rapids} />
         </Section>
       )}
 
-      {/* Links */}
-      <Section title="Links & Resources" icon="🔗" defaultOpen={false}>
+      <Section title="Links & Resources" defaultOpen={false}>
         <LinksSection links={sheet.links} isKayak={isKayak} />
       </Section>
 
-      {/* Bottom PDF button */}
       <div className="flex justify-center mt-6 mb-2 no-print">
         <button
           onClick={handlePrint}
           className="pill-btn btn-green px-8 py-3 text-sm font-medium"
         >
-          ⬇ Download as PDF
+          Download as PDF
         </button>
       </div>
     </div>

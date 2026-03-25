@@ -48,14 +48,42 @@ async function fetchSnippet(url: string, timeoutMs = 5000): Promise<string | nul
   }
 }
 
+// Words too common in outdoor pages to be meaningful matches
+const STOP_WORDS = new Set([
+  'trail', 'river', 'creek', 'mountain', 'park', 'state', 'forest',
+  'lake', 'falls', 'gorge', 'valley', 'ridge', 'brook', 'pond',
+  'national', 'road', 'north', 'south', 'east', 'west', 'upper',
+  'lower', 'great', 'long', 'water', 'area', 'route', 'path',
+  'hike', 'hiking', 'kayak', 'kayaking', 'paddle', 'paddling',
+  'camp', 'camping', 'backpack', 'backpacking', 'outdoor', 'wild',
+])
+
 function isRelevant(pageText: string, trail: Trail): boolean {
   const lower = pageText.toLowerCase()
-  const nameWords = trail.name.toLowerCase().split(/[\s—–\-:]+/).filter(w => w.length > 3)
-  const regionWords = trail.region.toLowerCase().split(/[\s—–\-:]+/).filter(w => w.length > 3)
-  // Page must mention at least 2 significant words from the trail name OR region
+
+  // Page must have meaningful content (not a login wall or error page)
+  // Strip HTML tags for a rough text-only length check
+  const textOnly = lower.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  if (textOnly.length < 200) return false
+
+  // Filter to significant words (not stop words, length > 3)
+  const nameWords = trail.name.toLowerCase().split(/[\s—–\-:,()]+/)
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w))
+  const regionWords = trail.region.toLowerCase().split(/[\s—–\-:,()]+/)
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w))
+
+  // After filtering stop words, require at least 2 significant name words
+  // OR 1 significant name word + 1 significant region word
   const nameHits = nameWords.filter(w => lower.includes(w)).length
   const regionHits = regionWords.filter(w => lower.includes(w)).length
-  return nameHits >= 2 || regionHits >= 2 || (nameHits >= 1 && regionHits >= 1)
+
+  // Need at least 2 specific matches total, with at least 1 from trail name
+  if (nameWords.length === 0 && regionWords.length === 0) {
+    // All words were stop words — can't verify relevance, be conservative
+    return false
+  }
+
+  return (nameHits >= 2) || (nameHits >= 1 && regionHits >= 1)
 }
 
 async function verifyAndEnhanceLinks(

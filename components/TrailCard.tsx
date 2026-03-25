@@ -8,78 +8,39 @@ interface TrailCardProps {
   index: number
 }
 
-const ACTIVITY_ICONS: Record<string, string> = {
-  hike: '🥾',
-  backpack: '⛺',
-  kayak: '🛶',
+const BANNER_CLASS: Record<string, string> = {
+  hike: 'tm-card-banner-hike',
+  backpack: 'tm-card-banner-backpack',
+  kayak: 'tm-card-banner-kayak',
 }
 
-const DIFFICULTY_STYLE: Record<string, React.CSSProperties> = {
-  easy: {
-    background: 'rgba(88,190,110,0.32)',
-    border: '1px solid rgba(100,198,124,0.42)',
-    color: '#0e5030',
-  },
-  moderate: {
-    background: 'rgba(148,204,48,0.35)',
-    border: '1px solid rgba(160,212,60,0.48)',
-    color: '#285010',
-  },
-  hard: {
-    background: 'rgba(255,208,40,0.28)',
-    border: '1px solid rgba(255,215,60,0.4)',
-    color: '#7a4a00',
-  },
-  strenuous: {
-    background: 'rgba(255,208,40,0.42)',
-    border: '1px solid rgba(255,215,60,0.55)',
-    color: '#6e3e00',
-  },
+const DIFFICULTY_CLASS: Record<string, string> = {
+  easy: 'tag-base tag-easy',
+  moderate: 'tag-base tag-moderate',
+  hard: 'tag-base tag-hard',
+  strenuous: 'tag-base tag-strenuous',
 }
 
-const ACTIVITY_ACCENT: Record<string, string> = {
-  hike: '#285010',
-  backpack: '#1e3c0a',
-  kayak: '#4a8a20',
-}
-
-export default function TrailCard({ trail, index }: TrailCardProps) {
-  const accentColor = ACTIVITY_ACCENT[trail.activity] || '#285010'
-  const diffStyle = DIFFICULTY_STYLE[trail.difficulty] || {}
+export default function TrailCard({ trail }: TrailCardProps) {
+  const bannerClass = BANNER_CLASS[trail.activity] || 'tm-card-banner-hike'
+  const diffClass = DIFFICULTY_CLASS[trail.difficulty] || 'tag-base'
 
   return (
     <Link href={`/trail/${trail.id}`} className="block no-underline">
-      <div
-        className="frost-card flex gap-4 p-5 hover:scale-[1.01] transition-transform cursor-pointer"
-        style={{ borderLeft: `4px solid ${accentColor}` }}
-      >
-        {/* Activity icon */}
-        <div className="flex-shrink-0 flex flex-col items-center pt-1">
-          <span className="text-2xl">{ACTIVITY_ICONS[trail.activity]}</span>
-          <span
-            className="mt-2 uppercase"
-            style={{
-              fontSize: '9px',
-              fontFamily: 'Comfortaa, sans-serif',
-              fontWeight: 400,
-              letterSpacing: '1px',
-              color: '#547a20',
-            }}
-          >
-            {trail.activity}
-          </span>
-        </div>
+      <div className="tm-card hover:shadow-md transition-shadow cursor-pointer">
+        {/* Activity banner strip */}
+        <div className={bannerClass} />
 
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
+        {/* Card body */}
+        <div style={{ padding: '13px 16px 14px' }}>
           {/* Trail name */}
           <h3
-            className="leading-snug mb-1"
+            className="leading-snug mb-0.5"
             style={{
-              fontFamily: 'Comfortaa, sans-serif',
+              fontFamily: 'var(--font-playfair), Playfair Display, serif',
               fontWeight: 700,
               fontSize: '15px',
-              color: '#182408',
+              color: '#0D3323',
             }}
           >
             {trail.name}
@@ -91,108 +52,46 @@ export default function TrailCard({ trail, index }: TrailCardProps) {
             style={{
               fontFamily: 'Comfortaa, sans-serif',
               fontWeight: 300,
-              fontSize: '11px',
-              color: '#4a6a18',
+              fontSize: '10px',
+              color: '#4a6858',
             }}
           >
             {trail.region}, {trail.state}
           </p>
 
-          {/* Stats grid — 4 columns */}
+          {/* Stat tiles grid */}
           <div
             className="mb-3"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '5px',
             }}
           >
-            {[
-              { label: 'dist', value: `${trail.distance_miles} mi` },
-              { label: 'time', value: `~${trail.estimated_hours}h` },
-              { label: 'from nyc', value: `${trail.distance_from_nyc_miles} mi` },
-              { label: 'difficulty', value: null },
-            ].map((stat, i) => (
-              <div
-                key={stat.label}
-                className="flex flex-col items-center py-1 px-1"
-                style={{
-                  borderRight: i < 3 ? '1px solid rgba(80,120,20,0.18)' : 'none',
-                }}
-              >
-                <span
-                  className="uppercase mb-0.5"
-                  style={{
-                    fontSize: '9px',
-                    fontFamily: 'Comfortaa, sans-serif',
-                    fontWeight: 400,
-                    letterSpacing: '1px',
-                    color: '#547a20',
-                  }}
-                >
-                  {stat.label}
-                </span>
-                {stat.value ? (
-                  <span
-                    style={{
-                      fontSize: '13px',
-                      fontFamily: 'Comfortaa, sans-serif',
-                      fontWeight: 700,
-                      color: '#182408',
-                    }}
-                  >
-                    {stat.value}
-                  </span>
-                ) : (
-                  <span
-                    className="px-2 py-0.5 rounded-full text-center"
-                    style={{
-                      ...diffStyle,
-                      fontSize: '10px',
-                      fontFamily: 'Comfortaa, sans-serif',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {trail.difficulty}
-                  </span>
-                )}
-              </div>
-            ))}
+            <div className="stat-tile">
+              <div className="stat-value">{trail.distance_miles} mi</div>
+              <div className="stat-label">dist</div>
+            </div>
+            <div className="stat-tile">
+              <div className="stat-value">~{trail.estimated_hours}h</div>
+              <div className="stat-label">time</div>
+            </div>
+            <div className="stat-tile">
+              <div className="stat-value">{trail.distance_from_nyc_miles} mi</div>
+              <div className="stat-label">from nyc</div>
+            </div>
+            <div className="stat-tile flex flex-col items-center justify-center">
+              <span className={diffClass}>{trail.difficulty}</span>
+            </div>
           </div>
 
-          {/* Terrain tags */}
+          {/* Feature tags */}
           <div className="flex flex-wrap gap-1.5">
             {trail.tags.slice(0, 4).map((tag) => (
-              <span
-                key={tag}
-                className="px-2.5 py-0.5 rounded-full"
-                style={{
-                  background: 'rgba(255,255,255,0.45)',
-                  border: '1px solid rgba(255,255,255,0.72)',
-                  color: '#243810',
-                  fontSize: '10px',
-                  fontFamily: 'Comfortaa, sans-serif',
-                  fontWeight: 600,
-                }}
-              >
+              <span key={tag} className="tag-base tag-feature">
                 {tag}
               </span>
             ))}
-          </div>
-
-          {/* Relevance bar */}
-          <div className="mt-3">
-            <div
-              className="h-1 rounded-full overflow-hidden"
-              style={{ background: 'rgba(80,120,20,0.12)' }}
-            >
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.max(55, 100 - index * 8)}%`,
-                  background: 'linear-gradient(90deg, #285010, #4a8a20)',
-                }}
-              />
-            </div>
           </div>
         </div>
       </div>

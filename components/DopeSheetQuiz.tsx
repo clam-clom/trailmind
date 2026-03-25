@@ -41,15 +41,15 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(24,36,8,0.45)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(13,51,35,0.45)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="frost-card w-full max-w-md p-6 relative">
+      <div className="tm-card w-full max-w-md p-6 relative">
         {/* Close */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-base transition-colors"
-          style={{ color: '#547a20', background: 'rgba(255,255,255,0.4)' }}
+          style={{ color: '#5a7860', background: '#edf1e4' }}
           aria-label="Close"
         >
           ✕
@@ -57,15 +57,13 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
 
         {/* Header */}
         <div className="mb-5">
-          <p className="label-caps mb-1" style={{ color: '#4a8a20' }}>
-            📋 DOPE Sheet — {trail.name}
-          </p>
+          <p className="label-caps mb-1">DOPE Sheet — {trail.name}</p>
           <h2
             style={{
-              fontFamily: 'Comfortaa, sans-serif',
-              fontWeight: 400,
+              fontFamily: 'var(--font-playfair), Playfair Display, serif',
+              fontWeight: 700,
               fontSize: '22px',
-              color: '#182408',
+              color: '#0D3323',
             }}
           >
             A few quick questions
@@ -78,13 +76,13 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
             <div
               key={label}
               className="h-1 flex-1 rounded-full transition-all duration-300"
-              style={{ background: i <= step ? '#285010' : 'rgba(80,120,20,0.22)' }}
+              style={{ background: i <= step ? '#0D3323' : 'rgba(13,51,35,0.15)' }}
             />
           ))}
         </div>
 
         {/* Step label */}
-        <p className="label-caps mb-4" style={{ color: 'var(--text3)' }}>
+        <p className="label-caps mb-4">
           {step + 1} / {STEPS.length} — {STEPS[step]}
         </p>
 
@@ -93,10 +91,10 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
           <QuizQuestion
             label="What type of trip?"
             options={[
-              { value: 'hike', label: '🥾 Hike', sub: 'Day hike' },
-              { value: 'backpack', label: '⛺ Backpack', sub: 'Overnight+' },
-              { value: 'kayak_day', label: '🛶 Kayak', sub: 'Day paddle' },
-              { value: 'kayak_expedition', label: '🏕️ Kayak expedition', sub: 'Overnight+' },
+              { value: 'hike', label: 'Hike', sub: 'Day hike' },
+              { value: 'backpack', label: 'Backpack', sub: 'Overnight+' },
+              { value: 'kayak_day', label: 'Kayak', sub: 'Day paddle' },
+              { value: 'kayak_expedition', label: 'Kayak expedition', sub: 'Overnight+' },
             ]}
             selected={answers.trip_type}
             onSelect={(v) => handleSelect('trip_type', v)}
@@ -135,10 +133,10 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
           <QuizQuestion
             label="What season?"
             options={[
-              { value: 'spring', label: '🌱 Spring', sub: 'Mar – May' },
-              { value: 'summer', label: '☀️ Summer', sub: 'Jun – Aug' },
-              { value: 'fall', label: '🍂 Fall', sub: 'Sep – Nov' },
-              { value: 'winter', label: '❄️ Winter', sub: 'Dec – Feb' },
+              { value: 'spring', label: 'Spring', sub: 'Mar – May' },
+              { value: 'summer', label: 'Summer', sub: 'Jun – Aug' },
+              { value: 'fall', label: 'Fall', sub: 'Sep – Nov' },
+              { value: 'winter', label: 'Winter', sub: 'Dec – Feb' },
             ]}
             selected={answers.season}
             onSelect={(v) => handleSelect('season', v)}
@@ -165,7 +163,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
             <button
               onClick={() => setStep(step - 1)}
               className="text-sm"
-              style={{ color: '#547a20', fontFamily: 'Comfortaa, sans-serif' }}
+              style={{ color: '#3A5A4C', fontFamily: 'Comfortaa, sans-serif' }}
             >
               ← Back
             </button>
@@ -202,7 +200,7 @@ function QuizQuestion({
     <div>
       <p
         className="text-base font-medium mb-4"
-        style={{ color: '#182408', fontFamily: 'var(--font-outfit), sans-serif' }}
+        style={{ color: '#0D3323', fontFamily: 'Comfortaa, sans-serif' }}
       >
         {label}
       </p>
@@ -215,19 +213,18 @@ function QuizQuestion({
               onClick={() => onSelect(opt.value)}
               className="p-3 rounded-xl text-left transition-all"
               style={{
-                background: isSelected ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)',
-                border: isSelected ? '1.5px solid rgba(80,120,20,0.45)' : '1.5px solid rgba(255,255,255,0.72)',
-                color: '#182408',
-                boxShadow: isSelected ? '0 0 0 1px rgba(80,120,20,0.12)' : 'none',
+                background: isSelected ? '#edf1e4' : '#ffffff',
+                border: isSelected ? '1.5px solid #3A5A4C' : '1.5px solid #c0ceac',
+                color: '#0D3323',
               }}
             >
               <div
                 className="font-medium text-sm"
-                style={{ fontFamily: 'Comfortaa, sans-serif', color: '#182408' }}
+                style={{ fontFamily: 'Comfortaa, sans-serif', color: '#0D3323' }}
               >
                 {opt.label}
               </div>
-              <div className="text-xs mt-0.5" style={{ color: 'var(--text3)' }}>
+              <div className="text-xs mt-0.5" style={{ color: '#5a7860' }}>
                 {opt.sub}
               </div>
             </button>
