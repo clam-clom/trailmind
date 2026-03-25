@@ -35,20 +35,51 @@ function ResultsContent() {
     }
 
     setLoading(true)
-    fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
+    const abort = new AbortController()
+
+    ;(async () => {
+      try {
+        const res = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          signal: abort.signal,
+        })
+        if (!res.ok) throw new Error('Search failed')
+
+        // Stream response — s: lines are status, everything else is JSON
+        const reader = res.body!.getReader()
+        const decoder = new TextDecoder()
+        let lineBuffer = ''
+        let dataBuffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value, { stream: true })
+          lineBuffer += chunk
+          const lines = lineBuffer.split('\n')
+          lineBuffer = lines.pop() ?? ''
+          for (const line of lines) {
+            if (!line.startsWith('s:')) dataBuffer += line + '\n'
+          }
+        }
+        if (lineBuffer && !lineBuffer.startsWith('s:')) dataBuffer += lineBuffer
+
+        const data = JSON.parse(dataBuffer.trim())
         if (data.error) throw new Error(data.error)
         sessionStorage.setItem('trailmind_results', JSON.stringify(data))
         sessionStorage.setItem('trailmind_query', query)
         setTrails(data.trails || [])
-      })
-      .catch(() => setError('Something went wrong. Try searching again.'))
-      .finally(() => setLoading(false))
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return // navigated away, ignore
+        setError('Something went wrong. Try searching again.')
+      } finally {
+        setLoading(false)
+      }
+    })()
+
+    return () => abort.abort()
   }, [query, router])
 
   return (

@@ -23,6 +23,12 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const placeholderIdx = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Abort any in-flight search when this component unmounts (e.g. navigating away)
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
 
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus()
@@ -39,6 +45,10 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!query.trim() || loading) return
+    // Abort any previous in-flight search
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
     setLoading(true)
     setStatusMsg('')
     try {
@@ -46,6 +56,7 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query.trim() }),
+        signal: abort.signal,
       })
       if (!res.ok) throw new Error('Search failed')
 

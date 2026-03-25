@@ -158,34 +158,39 @@ Return JSON matching this exact structure:
             messages: [{ role: 'user', content: userPrompt }],
           })
 
-          // Status ticker — runs alongside the Claude stream
-          const TICKS: [number, string][] = [
-            [1500,  'Planning your daily breakdown...'],
-            [4000,  'Building gear list...'],
-            [8000,  'Writing food plan...'],
-            [13000, 'Drafting evacuation plan...'],
-            [19000, 'Adding links & resources...'],
+          // Real section detection — status fires when Claude actually reaches that section
+          const SECTION_MARKERS: [string, string][] = [
+            ['"days":',            'Mapping out your daily breakdown...'],
+            ['"gear_list":',       'Compiling gear list...'],
+            ['"food_plan":',       'Planning meals...'],
+            ['"water_and_snacks":', 'Planning water & snacks...'],
+            ['"evac_plan":',       'Drafting evacuation plan...'],
+            ['"rapids":',          'Cataloging rapids & portages...'],
+            ['"links":',           'Gathering source links...'],
+            ['"safety_callouts":', 'Adding safety notes...'],
           ]
-          let tickerActive = true
-          const ticker = (async () => {
-            for (const [delay, msg] of TICKS) {
-              await new Promise(r => setTimeout(r, delay))
-              if (!tickerActive) break
-              s(msg)
-            }
-          })()
+          let accumulated = ''
+          const announced = new Set<string>()
 
           for await (const chunk of stream) {
             if (
               chunk.type === 'content_block_delta' &&
               chunk.delta.type === 'text_delta'
             ) {
-              controller.enqueue(encoder.encode(chunk.delta.text))
+              const text = chunk.delta.text
+              accumulated += text
+              controller.enqueue(encoder.encode(text))
+
+              // Check if Claude has started a new section
+              for (const [marker, msg] of SECTION_MARKERS) {
+                if (!announced.has(marker) && accumulated.includes(marker)) {
+                  announced.add(marker)
+                  s(msg)
+                }
+              }
             }
           }
 
-          tickerActive = false
-          await ticker
           controller.close()
         } catch (err) {
           console.error('DOPE sheet stream error:', err)

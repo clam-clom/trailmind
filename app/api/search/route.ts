@@ -50,14 +50,13 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         const s = (msg: string) => controller.enqueue(encoder.encode(`s:${msg}\n`))
         try {
-          s('Searching Northeast trails...')
+          s('Asking Claude...')
           const message = await anthropic.messages.create({
             model: 'claude-opus-4-6',
             max_tokens: 4096,
             system: SYSTEM_PROMPT,
             messages: [{ role: 'user', content: query }],
           })
-          s('Ranking results by match...')
           const content = message.content[0]
           if (content.type !== 'text') throw new Error('Unexpected response format')
           let jsonText = content.text.trim()
