@@ -63,23 +63,24 @@ export default function SearchInput({ initialValue = '', autoFocus = false }: Se
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-6 py-4 text-base rounded-2xl outline-none transition-all"
+        className="w-full outline-none transition-all"
         style={{
-          background: 'var(--frost)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: '1.5px solid var(--frost-border)',
-          boxShadow: '0 2px 20px rgba(0,0,0,0.06)',
-          color: 'var(--text)',
-          fontFamily: 'var(--font-outfit), sans-serif',
-          fontSize: '15px',
+          background: 'rgba(255,255,255,0.52)',
+          border: '1.5px solid rgba(255,255,255,0.82)',
+          borderRadius: '40px',
+          padding: '12px 20px',
+          fontSize: '13px',
+          fontFamily: 'Comfortaa, sans-serif',
+          color: '#1a2808',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          boxShadow: '0 2px 16px rgba(40,80,16,0.08)',
         }}
       />
       <button
         type="submit"
         disabled={!query.trim() || loading}
-        className="pill-btn btn-green self-center px-8 py-3 text-base font-medium disabled:opacity-50"
-        style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+        className="pill-btn btn-green self-center px-8 py-3 text-sm disabled:opacity-50"
       >
         {loading ? (
           <>

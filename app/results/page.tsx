@@ -22,7 +22,6 @@ function ResultsContent() {
       return
     }
 
-    // Check sessionStorage for cached results
     const cachedQuery = sessionStorage.getItem('trailmind_query')
     const cachedResults = sessionStorage.getItem('trailmind_results')
 
@@ -35,7 +34,6 @@ function ResultsContent() {
       } catch {}
     }
 
-    // Fetch fresh
     setLoading(true)
     fetch('/api/search', {
       method: 'POST',
@@ -54,54 +52,47 @@ function ResultsContent() {
   }, [query, router])
 
   return (
-    <main
-      className="relative min-h-screen"
-      style={{ background: 'var(--cream)' }}
-    >
+    <main className="relative min-h-screen">
       {/* Background blobs */}
       <div
         className="bg-blob"
         style={{
-          width: 500,
-          height: 500,
+          width: 340,
+          height: 340,
           top: '-80px',
-          right: '-100px',
-          background: 'radial-gradient(circle, rgba(148,199,180,0.18) 0%, transparent 70%)',
+          right: '-80px',
+          background: 'rgba(255,224,40,0.28)',
         }}
       />
       <div
         className="bg-blob"
         style={{
-          width: 400,
-          height: 400,
-          bottom: '100px',
-          left: '-80px',
-          background: 'radial-gradient(circle, rgba(232,160,32,0.08) 0%, transparent 70%)',
+          width: 280,
+          height: 280,
+          bottom: 100,
+          left: '-60px',
+          background: 'rgba(148,204,48,0.22)',
         }}
       />
 
-      {/* Header */}
+      {/* Sticky header */}
       <header
         className="sticky top-0 z-20 px-6 py-4"
         style={{
-          background: 'rgba(245,241,232,0.85)',
+          background: 'rgba(220,235,100,0.82)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid var(--stone)',
+          borderBottom: '1px solid rgba(80,120,20,0.18)',
         }}
       >
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-4 mb-3">
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 text-sm no-underline"
-              style={{ color: 'var(--text3)' }}
-            >
-              <span>←</span>
-              <span
-                style={{ fontFamily: 'var(--font-nunito), sans-serif', fontWeight: 600 }}
-              >
-                TrailMind
+            <Link href="/" className="flex items-center gap-0.5 no-underline">
+              <span style={{ fontFamily: 'Comfortaa, sans-serif', fontWeight: 700, fontSize: '16px', color: '#243808' }}>
+                trail
+              </span>
+              <span style={{ fontFamily: 'Comfortaa, sans-serif', fontWeight: 700, fontSize: '16px', color: '#a06800' }}>
+                mind
               </span>
             </Link>
           </div>
@@ -115,19 +106,16 @@ function ResultsContent() {
           <div className="flex flex-col items-center py-20 gap-4">
             <div
               className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: 'var(--green)', borderTopColor: 'transparent' }}
+              style={{ borderColor: '#285010', borderTopColor: 'transparent' }}
             />
-            <p style={{ color: 'var(--text3)', fontFamily: 'var(--font-outfit), sans-serif' }}>
+            <p style={{ color: '#547a20', fontFamily: 'Comfortaa, sans-serif', fontSize: '13px' }}>
               Finding trails...
             </p>
           </div>
         )}
 
         {error && (
-          <div
-            className="frost-card p-6 text-center"
-            style={{ color: 'var(--text2)' }}
-          >
+          <div className="frost-card p-6 text-center" style={{ color: '#4a6a18' }}>
             <p className="mb-4">{error}</p>
             <Link href="/" className="pill-btn btn-green px-6 py-2.5 text-sm inline-flex">
               Try again
@@ -139,10 +127,10 @@ function ResultsContent() {
           <>
             <p
               className="mb-4 text-sm"
-              style={{ color: 'var(--text3)', fontFamily: 'var(--font-outfit), sans-serif' }}
+              style={{ color: '#547a20', fontFamily: 'Comfortaa, sans-serif', fontSize: '11px', fontWeight: 400 }}
             >
               {trails.length} trails found for:{' '}
-              <span style={{ color: 'var(--text2)', fontStyle: 'italic' }}>&ldquo;{query}&rdquo;</span>
+              <span style={{ color: '#4a6a18', fontStyle: 'italic' }}>&ldquo;{query}&rdquo;</span>
             </p>
 
             <div className="flex flex-col gap-3">
@@ -155,7 +143,7 @@ function ResultsContent() {
 
         {!loading && !error && trails.length === 0 && (
           <div className="frost-card p-8 text-center">
-            <p style={{ color: 'var(--text2)' }}>No trails found. Try a different search.</p>
+            <p style={{ color: '#4a6a18' }}>No trails found. Try a different search.</p>
           </div>
         )}
       </div>

@@ -13,18 +13,22 @@ interface ActionBarProps {
 
 type ActivePanel = 'critique' | 'review' | null
 
+const BTN_BASE: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.38)',
+  border: '1.5px solid rgba(255,255,255,0.72)',
+  color: '#182408',
+}
+
 export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
   const router = useRouter()
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [actionDone, setActionDone] = useState<string | null>(null)
 
   const handleSave = () => {
-    // In MVP: show account creation prompt (simplified)
     const confirmed = window.confirm(
       'Create a free account to save trails and track your adventures.'
     )
     if (confirmed) {
-      // TODO: trigger Supabase auth flow
       setActionDone('saved')
     }
   }
@@ -47,7 +51,6 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
       })
     } catch {}
 
-    // Re-search with critique context
     const originalQuery = sessionStorage.getItem('trailmind_query') || trail.activity
     const newQuery = `${originalQuery} — but ${critiqueText.toLowerCase()}`
     const res = await fetch('/api/search', {
@@ -106,12 +109,21 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
   if (actionDone === 'saved' || actionDone === 'completed') {
     return (
       <div
-        className="fixed bottom-0 left-0 right-0 z-40 flex justify-center py-4 px-4"
-        style={{ background: 'var(--frost)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--stone)' }}
+        className="fixed bottom-0 left-0 right-0 z-40 flex justify-center py-4 px-4 no-print"
+        style={{
+          background: 'rgba(220,235,100,0.88)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderTop: '1px solid rgba(255,255,255,0.6)',
+        }}
       >
         <div
-          className="px-6 py-3 rounded-full text-sm font-medium"
-          style={{ background: 'var(--green)', color: '#fff' }}
+          className="px-6 py-3 rounded-full text-sm font-semibold"
+          style={{
+            background: '#285010',
+            color: '#fff',
+            fontFamily: 'Comfortaa, sans-serif',
+          }}
         >
           {actionDone === 'saved' ? '♡ Saved to wishlist' : '✓ Logged — nice work'}
         </div>
@@ -124,21 +136,22 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
       <div
         className="fixed bottom-0 left-0 right-0 z-40 no-print"
         style={{
-          background: 'var(--frost)',
+          background: 'rgba(220,235,100,0.88)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderTop: '1px solid var(--stone)',
+          borderTop: '1px solid rgba(255,255,255,0.6)',
         }}
       >
         {/* DOPE Sheet row */}
         <div className="flex justify-center px-4 pt-3 pb-1">
           <button
             onClick={onDopeSheetClick}
-            className="pill-btn w-full max-w-sm py-2.5 text-sm font-medium justify-center"
+            className="pill-btn w-full max-w-sm py-2.5 text-sm justify-center"
             style={{
-              background: 'rgba(148,199,180,0.18)',
-              border: '1.5px solid var(--teal)',
-              color: 'var(--green-dark)',
+              background: 'rgba(255,255,255,0.45)',
+              border: '1.5px solid rgba(255,255,255,0.8)',
+              color: '#182408',
+              fontFamily: 'Comfortaa, sans-serif',
             }}
           >
             📋 Generate DOPE Sheet
@@ -146,46 +159,34 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
         </div>
 
         {/* Action row */}
-        <div className="flex justify-center gap-3 px-4 pb-4 pt-2">
+        <div className="flex justify-center gap-2 px-4 pb-4 pt-2">
           <button
             onClick={handleSave}
-            className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[110px] justify-center"
-            style={{
-              background: 'var(--cream2)',
-              border: '1.5px solid var(--stone)',
-              color: 'var(--text2)',
-            }}
+            className="pill-btn px-4 py-2.5 text-sm flex-1 max-w-[100px] justify-center"
+            style={BTN_BASE}
           >
             ♡ Save
           </button>
 
           <button
             onClick={() => setActivePanel('critique')}
-            className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[120px] justify-center"
-            style={{
-              background: 'var(--cream2)',
-              border: '1.5px solid var(--stone)',
-              color: 'var(--text2)',
-            }}
+            className="pill-btn px-4 py-2.5 text-sm flex-1 max-w-[110px] justify-center"
+            style={BTN_BASE}
           >
             ↺ Not quite
           </button>
 
           <button
             onClick={() => setActivePanel('review')}
-            className="pill-btn btn-green px-5 py-2.5 text-sm font-medium flex-1 max-w-[120px] justify-center"
+            className="pill-btn btn-green px-4 py-2.5 text-sm flex-1 max-w-[110px] justify-center"
           >
             ✓ I did this
           </button>
 
           <button
             onClick={handlePass}
-            className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[80px] justify-center"
-            style={{
-              background: 'var(--cream2)',
-              border: '1.5px solid var(--stone)',
-              color: 'var(--text3)',
-            }}
+            className="pill-btn px-4 py-2.5 text-sm flex-1 max-w-[70px] justify-center"
+            style={{ ...BTN_BASE, color: '#547a20' }}
           >
             ✕ Pass
           </button>

@@ -1,35 +1,68 @@
 @import "tailwindcss";
 
+/* ── Fixed page gradient (works on all pages, stays put while scrolling) ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(150deg, #fdf0a0 0%, #d8ea78 50%, #a8d858 100%);
+}
+
 :root {
-  --cream: #f5f1e8;
-  --cream2: #ede8da;
-  --stone: #c8c0b0;
-  --text: #1a1a18;
-  --text2: #6a6258;
-  --text3: #9a9288;
-  --green: #638872;
-  --green-dark: #3d6858;
-  --teal: #94c7b4;
-  --teal-light: rgba(148, 199, 180, 0.18);
-  --amber: #e8a020;
-  --amber-light: rgba(232, 160, 32, 0.12);
-  --frost: rgba(255, 255, 255, 0.72);
-  --frost-border: rgba(255, 255, 255, 0.9);
+  /* Text */
+  --text:  #182408;
+  --text2: #4a6a18;
+  --text3: #547a20;
+
+  /* Logo */
+  --logo-dark:  #243808;
+  --logo-amber: #a06800;
+
+  /* Cards */
+  --card-bg:     rgba(255, 255, 255, 0.28);
+  --card-border: rgba(255, 255, 255, 0.92);
+
+  /* Search bar */
+  --search-bg:     rgba(255, 255, 255, 0.52);
+  --search-border: rgba(255, 255, 255, 0.82);
+
+  /* Buttons */
+  --btn-bg:    #285010;
+  --btn-hover: #1e3c0a;
+
+  /* Inner surfaces (chips, textareas, subtle panels) */
+  --inner-bg: rgba(255, 255, 255, 0.35);
+  --border:   rgba(80, 120, 20, 0.22);
+
+  /* Tags — terrain/feature */
+  --tag-bg:     rgba(255, 255, 255, 0.45);
+  --tag-border: rgba(255, 255, 255, 0.72);
+  --tag-text:   #243810;
+
+  /* Accent */
+  --amber:       #a06800;
+  --amber-light: rgba(160, 96, 0, 0.1);
+  --green-light: rgba(148, 204, 48, 0.18);
+
+  /* ── Backwards-compat aliases (keep components working) ── */
+  --cream2:      rgba(255, 255, 255, 0.35);
+  --stone:       rgba(80, 120, 20, 0.22);
+  --green:       #285010;
+  --green-dark:  #1e3c0a;
+  --teal:        #4a8a20;
+  --teal-light:  rgba(148, 204, 48, 0.18);
+  --frost:       rgba(255, 255, 255, 0.28);
+  --frost-border: rgba(255, 255, 255, 0.92);
 }
 
 @theme inline {
-  --color-cream: var(--cream);
-  --color-cream2: var(--cream2);
-  --color-stone: var(--stone);
-  --color-text: var(--text);
-  --color-text2: var(--text2);
-  --color-text3: var(--text3);
-  --color-green: var(--green);
-  --color-green-dark: var(--green-dark);
-  --color-teal: var(--teal);
-  --color-amber: var(--amber);
-  --font-outfit: 'Outfit', sans-serif;
-  --font-nunito: 'Nunito', sans-serif;
+  --color-text:        var(--text);
+  --color-text2:       var(--text2);
+  --color-text3:       var(--text3);
+  --color-green:       var(--green);
+  --color-green-dark:  var(--green-dark);
+  --font-comfortaa:    'Comfortaa', sans-serif;
 }
 
 * {
@@ -37,107 +70,132 @@
 }
 
 body {
-  background-color: var(--cream);
+  background: transparent;
   color: var(--text);
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Comfortaa', sans-serif;
   font-weight: 400;
   line-height: 1.6;
-  font-size: 15px;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
+/* ── Cards ────────────────────────────────────────────────────────────── */
 .frost-card {
-  background: var(--frost);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1.5px solid var(--frost-border);
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid var(--card-border);
+  border-radius: 20px;
+  box-shadow: 0 2px 16px rgba(40, 80, 16, 0.06);
+  position: relative;
+  overflow: hidden;
 }
 
+/* Shine orb — top-right bloom on every card */
+.frost-card::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(255, 252, 210, 0.38);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Card content sits above the shine orb */
+.frost-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
 .pill-btn {
   border-radius: 40px;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 500;
+  font-family: 'Comfortaa', sans-serif;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  border: none;
 }
 
 .btn-green {
-  background: var(--green);
+  background: var(--btn-bg);
   color: #fff;
   border: none;
 }
 
 .btn-green:hover {
-  background: var(--green-dark);
+  background: var(--btn-hover);
 }
 
+.btn-green:disabled {
+  opacity: 0.45;
+}
+
+/* ── Typography utilities ────────────────────────────────────────────── */
 .label-caps {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 500;
-  font-size: 11px;
+  font-family: 'Comfortaa', sans-serif;
+  font-weight: 400;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 1px;
   color: var(--text3);
 }
 
+/* ── Background blobs ────────────────────────────────────────────────── */
 .bg-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
   pointer-events: none;
+  z-index: 0;
 }
 
 /* ── Print / PDF styles ───────────────────────────────────────────────── */
 @media print {
-  /* Hide everything except the DOPE sheet */
-  body > * { display: none !important; }
-  body > main { display: block !important; }
+  body::before { display: none !important; }
 
-  /* Hide non-sheet elements on the page */
   .no-print,
   .bg-blob,
   nav {
     display: none !important;
   }
 
-  /* Show all collapsed sections */
   #dope-sheet-content * {
     display: block !important;
   }
 
-  /* Print-only section titles */
   .print-only {
     display: block !important;
   }
 
-  /* Clean backgrounds for print */
   body {
     background: #fff !important;
-    color: #1a1a18 !important;
+    color: #182408 !important;
     font-size: 12px;
   }
 
   .frost-card {
     background: #fff !important;
     backdrop-filter: none !important;
-    border: 1px solid #c8c0b0 !important;
+    border: 1px solid #ccc !important;
     box-shadow: none !important;
     page-break-inside: avoid;
     margin-bottom: 12px !important;
   }
 
-  #dope-sheet-content {
-    margin-top: 0 !important;
+  .frost-card::after {
+    display: none !important;
   }
 
-  /* Page breaks */
-  .frost-card {
-    page-break-inside: avoid;
+  #dope-sheet-content {
+    margin-top: 0 !important;
   }
 
   @page {

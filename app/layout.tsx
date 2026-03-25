@@ -1,19 +1,11 @@
 import type { Metadata } from 'next'
-import { Outfit, Nunito } from 'next/font/google'
+import { Comfortaa } from 'next/font/google'
 import './globals.css'
 
-const outfit = Outfit({
+const comfortaa = Comfortaa({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-outfit',
-  display: 'swap',
-})
-
-const nunito = Nunito({
-  subsets: ['latin'],
-  weight: ['300', '400', '600'],
-  style: ['normal', 'italic'],
-  variable: '--font-nunito',
+  weight: ['300', '400', '600', '700'],
+  variable: '--font-comfortaa',
   display: 'swap',
 })
 
@@ -28,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${nunito.variable}`}>
+    <html lang="en" className={comfortaa.variable}>
       <body>{children}</body>
     </html>
   )

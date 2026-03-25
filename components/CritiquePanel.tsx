@@ -33,7 +33,7 @@ export default function CritiquePanel({ trailName, onSubmit, onClose }: Critique
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center p-4"
-      style={{ background: 'rgba(26,26,24,0.3)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(24,36,8,0.35)', backdropFilter: 'blur(6px)' }}
       onClick={onClose}
     >
       <div
@@ -42,20 +42,23 @@ export default function CritiquePanel({ trailName, onSubmit, onClose }: Critique
       >
         <div className="flex items-center justify-between mb-1">
           <h3
-            className="text-base font-semibold"
-            style={{ fontFamily: 'var(--font-nunito), sans-serif', color: 'var(--text)' }}
+            className="text-base"
+            style={{ fontFamily: 'Comfortaa, sans-serif', fontWeight: 700, color: '#182408' }}
           >
             What wasn&apos;t right?
           </h3>
           <button
             onClick={onClose}
-            className="text-lg leading-none"
-            style={{ color: 'var(--text3)' }}
+            className="w-7 h-7 flex items-center justify-center rounded-full text-base"
+            style={{ color: '#547a20', background: 'rgba(255,255,255,0.4)' }}
           >
             ×
           </button>
         </div>
-        <p className="text-sm mb-4" style={{ color: 'var(--text3)' }}>
+        <p
+          className="text-sm mb-4"
+          style={{ color: '#547a20', fontFamily: 'Comfortaa, sans-serif', fontWeight: 300 }}
+        >
           {trailName}
         </p>
 
@@ -66,11 +69,13 @@ export default function CritiquePanel({ trailName, onSubmit, onClose }: Critique
               onClick={() => toggle(chip)}
               className="px-3 py-1.5 rounded-full text-sm transition-all"
               style={{
-                background: selected.includes(chip) ? 'var(--green)' : 'var(--cream2)',
-                color: selected.includes(chip) ? '#fff' : 'var(--text2)',
+                background: selected.includes(chip) ? '#285010' : 'rgba(255,255,255,0.45)',
+                color: selected.includes(chip) ? '#fff' : '#182408',
                 border: '1.5px solid',
-                borderColor: selected.includes(chip) ? 'var(--green)' : 'var(--stone)',
-                fontFamily: 'var(--font-outfit), sans-serif',
+                borderColor: selected.includes(chip) ? '#285010' : 'rgba(255,255,255,0.72)',
+                fontFamily: 'Comfortaa, sans-serif',
+                fontWeight: 600,
+                fontSize: '11px',
               }}
             >
               {chip}
@@ -85,17 +90,17 @@ export default function CritiquePanel({ trailName, onSubmit, onClose }: Critique
           rows={2}
           className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none mb-4"
           style={{
-            background: 'var(--cream2)',
-            border: '1.5px solid var(--stone)',
-            color: 'var(--text)',
-            fontFamily: 'var(--font-outfit), sans-serif',
+            background: 'rgba(255,255,255,0.45)',
+            border: '1.5px solid rgba(255,255,255,0.72)',
+            color: '#182408',
+            fontFamily: 'Comfortaa, sans-serif',
           }}
         />
 
         <button
           onClick={() => onSubmit(selected, text)}
           disabled={selected.length === 0 && !text.trim()}
-          className="pill-btn btn-green w-full py-3 justify-center text-sm font-medium disabled:opacity-40"
+          className="pill-btn btn-green w-full py-3 justify-center text-sm disabled:opacity-40"
         >
           Show me better options →
         </button>

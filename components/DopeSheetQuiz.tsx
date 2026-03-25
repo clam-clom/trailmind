@@ -41,7 +41,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(26,26,24,0.55)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(24,36,8,0.45)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="frost-card w-full max-w-md p-6 relative">
@@ -49,7 +49,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-base transition-colors"
-          style={{ color: 'var(--text3)', background: 'var(--cream2)' }}
+          style={{ color: '#547a20', background: 'rgba(255,255,255,0.4)' }}
           aria-label="Close"
         >
           ✕
@@ -57,15 +57,15 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
 
         {/* Header */}
         <div className="mb-5">
-          <p className="label-caps mb-1" style={{ color: 'var(--teal)' }}>
+          <p className="label-caps mb-1" style={{ color: '#4a8a20' }}>
             📋 DOPE Sheet — {trail.name}
           </p>
           <h2
             style={{
-              fontFamily: 'var(--font-nunito), sans-serif',
+              fontFamily: 'Comfortaa, sans-serif',
               fontWeight: 400,
               fontSize: '22px',
-              color: 'var(--text)',
+              color: '#182408',
             }}
           >
             A few quick questions
@@ -78,7 +78,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
             <div
               key={label}
               className="h-1 flex-1 rounded-full transition-all duration-300"
-              style={{ background: i <= step ? 'var(--green)' : 'var(--stone)' }}
+              style={{ background: i <= step ? '#285010' : 'rgba(80,120,20,0.22)' }}
             />
           ))}
         </div>
@@ -165,7 +165,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
             <button
               onClick={() => setStep(step - 1)}
               className="text-sm"
-              style={{ color: 'var(--text3)', fontFamily: 'var(--font-outfit), sans-serif' }}
+              style={{ color: '#547a20', fontFamily: 'Comfortaa, sans-serif' }}
             >
               ← Back
             </button>
@@ -202,7 +202,7 @@ function QuizQuestion({
     <div>
       <p
         className="text-base font-medium mb-4"
-        style={{ color: 'var(--text)', fontFamily: 'var(--font-outfit), sans-serif' }}
+        style={{ color: '#182408', fontFamily: 'var(--font-outfit), sans-serif' }}
       >
         {label}
       </p>
@@ -215,14 +215,14 @@ function QuizQuestion({
               onClick={() => onSelect(opt.value)}
               className="p-3 rounded-xl text-left transition-all"
               style={{
-                background: isSelected ? 'rgba(99,136,114,0.1)' : 'rgba(255,255,255,0.5)',
-                border: isSelected ? '1.5px solid var(--green)' : '1.5px solid var(--stone)',
-                color: 'var(--text)',
+                background: isSelected ? 'rgba(40,80,16,0.1)' : 'rgba(255,255,255,0.45)',
+                border: isSelected ? '1.5px solid #285010' : '1.5px solid rgba(255,255,255,0.72)',
+                color: '#182408',
               }}
             >
               <div
                 className="font-medium text-sm"
-                style={{ fontFamily: 'var(--font-outfit), sans-serif', color: isSelected ? 'var(--green-dark)' : 'var(--text)' }}
+                style={{ fontFamily: 'Comfortaa, sans-serif', color: isSelected ? '#1e3c0a' : '#182408' }}
               >
                 {opt.label}
               </div>
