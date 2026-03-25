@@ -160,8 +160,15 @@ Return JSON matching this exact structure:
 
           // Real section detection — status fires when Claude actually reaches that section
           const SECTION_MARKERS: [string, string][] = [
+            ['"type":',            'Starting DOPE sheet...'],
+            ['"header":',          'Writing trip header...'],
+            ['"trail_name":',      'Setting up trail overview...'],
+            ['"duration":',        'Calculating duration...'],
             ['"days":',            'Mapping out your daily breakdown...'],
+            ['"breaks":',          'Building break schedule...'],
             ['"gear_list":',       'Compiling gear list...'],
+            ['"personal":',        'Listing personal gear...'],
+            ['"shared":',          'Listing shared group gear...'],
             ['"food_plan":',       'Planning meals...'],
             ['"water_and_snacks":', 'Planning water & snacks...'],
             ['"evac_plan":',       'Drafting evacuation plan...'],
