@@ -8,11 +8,12 @@ import { Trail } from '@/lib/types'
 
 interface ActionBarProps {
   trail: Trail
+  onDopeSheetClick: () => void
 }
 
 type ActivePanel = 'critique' | 'review' | null
 
-export default function ActionBar({ trail }: ActionBarProps) {
+export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
   const router = useRouter()
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [actionDone, setActionDone] = useState<string | null>(null)
@@ -121,7 +122,7 @@ export default function ActionBar({ trail }: ActionBarProps) {
   return (
     <>
       <div
-        className="fixed bottom-0 left-0 right-0 z-40 flex justify-center gap-3 py-4 px-4"
+        className="fixed bottom-0 left-0 right-0 z-40 no-print"
         style={{
           background: 'var(--frost)',
           backdropFilter: 'blur(16px)',
@@ -129,48 +130,66 @@ export default function ActionBar({ trail }: ActionBarProps) {
           borderTop: '1px solid var(--stone)',
         }}
       >
-        <button
-          onClick={handleSave}
-          className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[120px] justify-center"
-          style={{
-            background: 'var(--cream2)',
-            border: '1.5px solid var(--stone)',
-            color: 'var(--text2)',
-          }}
-        >
-          ♡ Save
-        </button>
+        {/* DOPE Sheet row */}
+        <div className="flex justify-center px-4 pt-3 pb-1">
+          <button
+            onClick={onDopeSheetClick}
+            className="pill-btn w-full max-w-sm py-2.5 text-sm font-medium justify-center"
+            style={{
+              background: 'rgba(148,199,180,0.18)',
+              border: '1.5px solid var(--teal)',
+              color: 'var(--green-dark)',
+            }}
+          >
+            📋 Generate DOPE Sheet
+          </button>
+        </div>
 
-        <button
-          onClick={() => setActivePanel('critique')}
-          className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[130px] justify-center"
-          style={{
-            background: 'var(--cream2)',
-            border: '1.5px solid var(--stone)',
-            color: 'var(--text2)',
-          }}
-        >
-          ↺ Not quite
-        </button>
+        {/* Action row */}
+        <div className="flex justify-center gap-3 px-4 pb-4 pt-2">
+          <button
+            onClick={handleSave}
+            className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[110px] justify-center"
+            style={{
+              background: 'var(--cream2)',
+              border: '1.5px solid var(--stone)',
+              color: 'var(--text2)',
+            }}
+          >
+            ♡ Save
+          </button>
 
-        <button
-          onClick={() => setActivePanel('review')}
-          className="pill-btn btn-green px-5 py-2.5 text-sm font-medium flex-1 max-w-[130px] justify-center"
-        >
-          ✓ I did this
-        </button>
+          <button
+            onClick={() => setActivePanel('critique')}
+            className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[120px] justify-center"
+            style={{
+              background: 'var(--cream2)',
+              border: '1.5px solid var(--stone)',
+              color: 'var(--text2)',
+            }}
+          >
+            ↺ Not quite
+          </button>
 
-        <button
-          onClick={handlePass}
-          className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[80px] justify-center"
-          style={{
-            background: 'var(--cream2)',
-            border: '1.5px solid var(--stone)',
-            color: 'var(--text3)',
-          }}
-        >
-          ✕ Pass
-        </button>
+          <button
+            onClick={() => setActivePanel('review')}
+            className="pill-btn btn-green px-5 py-2.5 text-sm font-medium flex-1 max-w-[120px] justify-center"
+          >
+            ✓ I did this
+          </button>
+
+          <button
+            onClick={handlePass}
+            className="pill-btn px-5 py-2.5 text-sm font-medium flex-1 max-w-[80px] justify-center"
+            style={{
+              background: 'var(--cream2)',
+              border: '1.5px solid var(--stone)',
+              color: 'var(--text3)',
+            }}
+          >
+            ✕ Pass
+          </button>
+        </div>
       </div>
 
       {activePanel === 'critique' && (

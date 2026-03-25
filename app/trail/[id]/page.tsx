@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ActionBar from '@/components/ActionBar'
-import { Trail } from '@/lib/types'
+import DopeSheetQuiz from '@/components/DopeSheetQuiz'
+import DopeSheetDisplay from '@/components/DopeSheetDisplay'
+import { Trail, DopeSheet, DopeSheetQuizAnswers } from '@/lib/types'
 
 const DIFFICULTY_STYLE: Record<string, React.CSSProperties> = {
   easy: { background: 'rgba(148,199,180,0.25)', color: '#3d6858' },
@@ -24,6 +26,35 @@ export default function TrailDetailPage() {
   const router = useRouter()
   const [trail, setTrail] = useState<Trail | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [showQuiz, setShowQuiz] = useState(false)
+  const [dopeSheet, setDopeSheet] = useState<DopeSheet | null>(null)
+  const [dopeLoading, setDopeLoading] = useState(false)
+  const [dopeError, setDopeError] = useState<string | null>(null)
+
+  const handleDopeSheetSubmit = async (answers: DopeSheetQuizAnswers) => {
+    if (!trail) return
+    setShowQuiz(false)
+    setDopeLoading(true)
+    setDopeError(null)
+    try {
+      const res = await fetch('/api/dope-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trail, quiz: answers }),
+      })
+      if (!res.ok) throw new Error('Generation failed')
+      const data = await res.json()
+      setDopeSheet(data.sheet)
+      // Scroll to sheet after render
+      setTimeout(() => {
+        document.getElementById('dope-sheet-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    } catch {
+      setDopeError('Something went wrong generating the DOPE Sheet. Try again.')
+    } finally {
+      setDopeLoading(false)
+    }
+  }
 
   useEffect(() => {
     const cached = sessionStorage.getItem('trailmind_results')
@@ -232,9 +263,58 @@ export default function TrailDetailPage() {
             View on {trail.source} →
           </a>
         </div>
+
+        {/* DOPE Sheet loading state */}
+        {dopeLoading && (
+          <div
+            className="frost-card p-8 mb-6 flex flex-col items-center gap-3"
+            style={{ textAlign: 'center' }}
+          >
+            <div
+              className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: 'var(--teal)', borderTopColor: 'transparent' }}
+            />
+            <p style={{ color: 'var(--text3)', fontFamily: 'var(--font-outfit), sans-serif', fontSize: '14px' }}>
+              Building your DOPE Sheet...
+            </p>
+          </div>
+        )}
+
+        {/* DOPE Sheet error */}
+        {dopeError && (
+          <div
+            className="frost-card p-4 mb-6 flex items-start gap-3"
+            style={{ borderLeft: '3px solid var(--amber)' }}
+          >
+            <span>⚠️</span>
+            <div>
+              <p className="text-sm mb-2" style={{ color: 'var(--text2)' }}>{dopeError}</p>
+              <button
+                onClick={() => setShowQuiz(true)}
+                className="pill-btn px-4 py-1.5 text-xs"
+                style={{ background: 'var(--cream2)', border: '1.5px solid var(--stone)', color: 'var(--text2)' }}
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* DOPE Sheet display */}
+        {dopeSheet && (
+          <DopeSheetDisplay sheet={dopeSheet} trailName={trail.name} />
+        )}
       </div>
 
-      <ActionBar trail={trail} />
+      <ActionBar trail={trail} onDopeSheetClick={() => setShowQuiz(true)} />
+
+      {showQuiz && (
+        <DopeSheetQuiz
+          trail={trail}
+          onSubmit={handleDopeSheetSubmit}
+          onClose={() => setShowQuiz(false)}
+        />
+      )}
     </main>
   )
 }

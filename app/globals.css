@@ -91,3 +91,57 @@ body {
   filter: blur(80px);
   pointer-events: none;
 }
+
+/* ── Print / PDF styles ───────────────────────────────────────────────── */
+@media print {
+  /* Hide everything except the DOPE sheet */
+  body > * { display: none !important; }
+  body > main { display: block !important; }
+
+  /* Hide non-sheet elements on the page */
+  .no-print,
+  .bg-blob,
+  nav {
+    display: none !important;
+  }
+
+  /* Show all collapsed sections */
+  #dope-sheet-content * {
+    display: block !important;
+  }
+
+  /* Print-only section titles */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Clean backgrounds for print */
+  body {
+    background: #fff !important;
+    color: #1a1a18 !important;
+    font-size: 12px;
+  }
+
+  .frost-card {
+    background: #fff !important;
+    backdrop-filter: none !important;
+    border: 1px solid #c8c0b0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    margin-bottom: 12px !important;
+  }
+
+  #dope-sheet-content {
+    margin-top: 0 !important;
+  }
+
+  /* Page breaks */
+  .frost-card {
+    page-break-inside: avoid;
+  }
+
+  @page {
+    margin: 20mm;
+    size: A4;
+  }
+}
