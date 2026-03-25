@@ -215,14 +215,15 @@ function QuizQuestion({
               onClick={() => onSelect(opt.value)}
               className="p-3 rounded-xl text-left transition-all"
               style={{
-                background: isSelected ? 'rgba(40,80,16,0.1)' : 'rgba(255,255,255,0.45)',
-                border: isSelected ? '1.5px solid #285010' : '1.5px solid rgba(255,255,255,0.72)',
+                background: isSelected ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)',
+                border: isSelected ? '1.5px solid rgba(80,120,20,0.45)' : '1.5px solid rgba(255,255,255,0.72)',
                 color: '#182408',
+                boxShadow: isSelected ? '0 0 0 1px rgba(80,120,20,0.12)' : 'none',
               }}
             >
               <div
                 className="font-medium text-sm"
-                style={{ fontFamily: 'Comfortaa, sans-serif', color: isSelected ? '#1e3c0a' : '#182408' }}
+                style={{ fontFamily: 'Comfortaa, sans-serif', color: '#182408' }}
               >
                 {opt.label}
               </div>

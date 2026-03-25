@@ -178,9 +178,10 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
 
           <button
             onClick={() => setActivePanel('review')}
-            className="pill-btn btn-green px-4 py-2.5 text-sm flex-1 max-w-[110px] justify-center"
+            className="pill-btn px-4 py-2.5 text-sm flex-1 max-w-[110px] justify-center"
+            style={BTN_BASE}
           >
-            ✓ I did this
+            I did this
           </button>
 
           <button
