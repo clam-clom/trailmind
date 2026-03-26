@@ -3,11 +3,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { anthropic } from '@/lib/anthropic'
 import { Trail, DopeSheetQuizAnswers } from '@/lib/types'
 
-// ── Link verification ──────────────────────────────────────────────
-// Fetches each URL, reads the first chunk of page content, and checks
-// whether the page actually mentions the trail. Only verified relevant
-// links are kept. Claude-generated URLs are checked alongside
-// constructed fallbacks from known source patterns.
+// ── Link discovery via web search ─────────────────────────────────
+// Claude hallucinates URLs. Instead of trusting them, we throw them
+// out entirely and search the web for REAL pages about this specific
+// trail. Uses DuckDuckGo HTML search to find actual URLs, then
+// verifies each one contains content about this trail.
 
 interface VerifiedLinks {
   trail: string[]
@@ -16,7 +16,54 @@ interface VerifiedLinks {
   river_data?: string[]
 }
 
-async function fetchSnippet(url: string, timeoutMs = 5000): Promise<string | null> {
+// Search DuckDuckGo HTML and extract result URLs
+async function webSearch(query: string, max = 5): Promise<string[]> {
+  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 8000)
+  try {
+    const res = await fetch(searchUrl, {
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        Accept: 'text/html',
+      },
+    })
+    clearTimeout(timer)
+    if (!res.ok) return []
+    const html = await res.text()
+
+    // Extract result URLs from DuckDuckGo HTML results
+    const urls: string[] = []
+    // DuckDuckGo uses redirect links: //duckduckgo.com/l/?uddg=ENCODED_URL
+    const uddgRegex = /uddg=([^&"]+)/g
+    let match
+    while ((match = uddgRegex.exec(html)) !== null && urls.length < max) {
+      try {
+        const decoded = decodeURIComponent(match[1])
+        if (decoded.startsWith('http') && !decoded.includes('duckduckgo.com')) {
+          urls.push(decoded)
+        }
+      } catch {}
+    }
+
+    // Fallback: try direct href extraction
+    if (urls.length === 0) {
+      const hrefRegex = /class="result__a"\s+href="(https?[^"]+)"/g
+      while ((match = hrefRegex.exec(html)) !== null && urls.length < max) {
+        urls.push(match[1])
+      }
+    }
+
+    return urls
+  } catch {
+    clearTimeout(timer)
+    return []
+  }
+}
+
+// Fetch a URL and read the first chunk to check it's real + relevant
+async function fetchAndCheck(url: string, trail: Trail, timeoutMs = 6000): Promise<boolean> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -24,15 +71,16 @@ async function fetchSnippet(url: string, timeoutMs = 5000): Promise<string | nul
       signal: ctrl.signal,
       redirect: 'follow',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TrailMind/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         Accept: 'text/html,application/xhtml+xml,*/*',
       },
     })
     clearTimeout(timer)
-    if (!res.ok) return null
-    // Read only the first ~15 KB to check relevance
+    if (!res.ok) return false
+
+    // Read first ~15KB
     const reader = res.body?.getReader()
-    if (!reader) return null
+    if (!reader) return false
     const decoder = new TextDecoder()
     let text = ''
     while (text.length < 15000) {
@@ -41,155 +89,136 @@ async function fetchSnippet(url: string, timeoutMs = 5000): Promise<string | nul
       text += decoder.decode(value, { stream: true })
     }
     reader.cancel()
-    return text
+
+    const lower = text.toLowerCase()
+
+    // Must have substantial content (not empty/error page)
+    const textOnly = lower.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+    if (textOnly.length < 300) return false
+
+    // Check the page title or body for the trail name
+    // Use the full trail name as a phrase match first (strongest signal)
+    const fullName = trail.name.toLowerCase()
+    if (lower.includes(fullName)) return true
+
+    // Try significant sub-phrases (e.g. "Lehigh River Gorge" from
+    // "Lehigh River Gorge — White Haven to Jim Thorpe Expedition")
+    const nameParts = trail.name.split(/[\s—–\-:]+/).filter(w => w.length > 2)
+    // Build 3-word sliding windows from the trail name
+    for (let i = 0; i <= nameParts.length - 3; i++) {
+      const phrase = nameParts.slice(i, i + 3).join(' ').toLowerCase()
+      if (lower.includes(phrase)) return true
+    }
+
+    return false
   } catch {
     clearTimeout(timer)
-    return null
-  }
-}
-
-// Words too common in outdoor pages to be meaningful matches
-const STOP_WORDS = new Set([
-  'trail', 'river', 'creek', 'mountain', 'park', 'state', 'forest',
-  'lake', 'falls', 'gorge', 'valley', 'ridge', 'brook', 'pond',
-  'national', 'road', 'north', 'south', 'east', 'west', 'upper',
-  'lower', 'great', 'long', 'water', 'area', 'route', 'path',
-  'hike', 'hiking', 'kayak', 'kayaking', 'paddle', 'paddling',
-  'camp', 'camping', 'backpack', 'backpacking', 'outdoor', 'wild',
-])
-
-function isRelevant(pageText: string, trail: Trail): boolean {
-  const lower = pageText.toLowerCase()
-
-  // Page must have meaningful content (not a login wall or error page)
-  // Strip HTML tags for a rough text-only length check
-  const textOnly = lower.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-  if (textOnly.length < 200) return false
-
-  // Filter to significant words (not stop words, length > 3)
-  const nameWords = trail.name.toLowerCase().split(/[\s—–\-:,()]+/)
-    .filter(w => w.length > 3 && !STOP_WORDS.has(w))
-  const regionWords = trail.region.toLowerCase().split(/[\s—–\-:,()]+/)
-    .filter(w => w.length > 3 && !STOP_WORDS.has(w))
-
-  // After filtering stop words, require at least 2 significant name words
-  // OR 1 significant name word + 1 significant region word
-  const nameHits = nameWords.filter(w => lower.includes(w)).length
-  const regionHits = regionWords.filter(w => lower.includes(w)).length
-
-  // Need at least 2 specific matches total, with at least 1 from trail name
-  if (nameWords.length === 0 && regionWords.length === 0) {
-    // All words were stop words — can't verify relevance, be conservative
     return false
   }
-
-  return (nameHits >= 2) || (nameHits >= 1 && regionHits >= 1)
 }
 
-async function verifyAndEnhanceLinks(
-  claudeLinks: Record<string, string[]> | undefined,
+async function findRealLinks(
   trail: Trail,
   isKayak: boolean,
   statusFn: (msg: string) => void,
 ): Promise<VerifiedLinks> {
   const result: VerifiedLinks = { trail: [], maps: [], trip_reports: [] }
   if (isKayak) result.river_data = []
-
-  // ── 1. Collect candidate URLs ──
-  type Candidate = { url: string; cat: keyof VerifiedLinks }
-  const candidates: Candidate[] = []
   const seen = new Set<string>()
-  const add = (url: string, cat: keyof VerifiedLinks) => {
-    if (!url || url.includes('[verify]') || seen.has(url)) return
-    seen.add(url)
-    candidates.push({ url, cat })
-  }
 
-  // Trail's own source URL (from search data — most trustworthy)
-  if (trail.source_url) add(trail.source_url, 'trail')
+  const trailName = trail.name
+  const region = trail.region
+  const state = trail.state
 
-  // Claude's links
-  if (claudeLinks) {
-    for (const u of claudeLinks.trail || []) add(u, 'trail')
-    for (const u of claudeLinks.maps || []) add(u, 'maps')
-    for (const u of claudeLinks.trip_reports || []) add(u, 'trip_reports')
-    if (isKayak) for (const u of claudeLinks.river_data || []) add(u, 'river_data')
-  }
+  statusFn('Searching the web for real trail links...')
 
-  // ── 2. Constructed fallback URLs from known patterns ──
-  const q = encodeURIComponent(trail.name)
-  const qRegion = encodeURIComponent(trail.region)
-
-  // AllTrails search (always works)
-  add(`https://www.alltrails.com/search?q=${q}`, 'trail')
-  // Google Maps search
-  add(`https://www.google.com/maps/search/${q}+${encodeURIComponent(trail.state)}`, 'maps')
-
-  // Source-specific fallbacks
-  if (trail.source === 'NPS' || trail.region.toLowerCase().includes('national')) {
-    add(`https://www.nps.gov/findapark/index.htm`, 'trail')
-  }
-  if (trail.source === 'NYNJTC') {
-    add(`https://www.nynjtc.org/search/node/${q}`, 'trail')
-  }
-  if (trail.source === 'NYS DEC' || trail.state === 'NY') {
-    add(`https://www.dec.ny.gov/outdoor/hiking`, 'trail')
-  }
-  if (trail.state === 'PA') {
-    add(`https://www.dcnr.pa.gov/StateForests/FindAForest/Pages/default.aspx`, 'trail')
-  }
-  if (trail.state === 'CT') {
-    add(`https://portal.ct.gov/DEEP/State-Parks/Listing-of-State-Parks`, 'trail')
-  }
+  // ── 1. Build targeted search queries ──
+  type SearchJob = { query: string; cat: keyof VerifiedLinks }
+  const jobs: SearchJob[] = [
+    // Trail pages — search for the specific trail on known good sites
+    { query: `"${trailName}" site:alltrails.com`, cat: 'trail' },
+    { query: `"${trailName}" ${region} ${state} official trail page`, cat: 'trail' },
+    // Maps
+    { query: `"${trailName}" ${state} trail map pdf`, cat: 'maps' },
+    // Trip reports
+    { query: `"${trailName}" trip report`, cat: 'trip_reports' },
+  ]
 
   if (isKayak) {
-    add(`https://www.americanwhitewater.org/content/River/search/.json?river=${q}`, 'river_data')
-    add('https://www.americanwhitewater.org/content/River/view/river-index', 'river_data')
-    // USGS gauges for the state
-    const stateCode = { NY: 'ny', NJ: 'nj', PA: 'pa', CT: 'ct' }[trail.state] || 'ny'
-    add(`https://waterdata.usgs.gov/nwis/rt?search_site_no=&search_station_nm=${q}&State=${stateCode}`, 'river_data')
+    jobs.push(
+      { query: `"${trailName}" site:americanwhitewater.org`, cat: 'river_data' },
+      { query: `"${trailName}" ${state} river gauge water level`, cat: 'river_data' },
+      { query: `"${trailName}" paddle kayak put-in take-out`, cat: 'trail' },
+    )
   }
 
-  // YouTube trip report search
-  add(`https://www.youtube.com/results?search_query=${q}+trip+report`, 'trip_reports')
-  // AllTrails reviews
-  add(`https://www.alltrails.com/search?q=${q}`, 'trip_reports')
+  // Add source-specific searches
+  const sourceMap: Record<string, string> = {
+    NPS: `"${trailName}" site:nps.gov`,
+    NYNJTC: `"${trailName}" site:nynjtc.org`,
+    'NYS DEC': `"${trailName}" site:dec.ny.gov`,
+    AW: `"${trailName}" site:americanwhitewater.org`,
+  }
+  if (sourceMap[trail.source]) {
+    jobs.push({ query: sourceMap[trail.source], cat: 'trail' })
+  }
 
-  statusFn('Verifying links & resources...')
-
-  // ── 3. Verify all candidates in parallel ──
-  const verifyResults = await Promise.allSettled(
-    candidates.map(async ({ url, cat }) => {
-      const snippet = await fetchSnippet(url)
-      if (snippet === null) return { url, cat, status: 'dead' as const }
-      // Search URLs and index pages are always relevant if they load
-      const isSearchOrIndex =
-        url.includes('search') || url.includes('index') ||
-        url.includes('results') || url.includes('findapark') ||
-        url.includes('google.com/maps') || url.includes('youtube.com')
-      if (isSearchOrIndex) return { url, cat, status: 'relevant' as const }
-      // For specific pages, check content relevance
-      if (isRelevant(snippet, trail)) return { url, cat, status: 'relevant' as const }
-      return { url, cat, status: 'irrelevant' as const }
+  // ── 2. Run all web searches in parallel ──
+  statusFn('Searching AllTrails, NPS, and other sources...')
+  const searchResults = await Promise.allSettled(
+    jobs.map(async (job) => {
+      const urls = await webSearch(job.query, 3)
+      return { urls, cat: job.cat }
     })
   )
 
-  // ── 4. Build verified links ──
-  for (const r of verifyResults) {
+  // Collect all candidate URLs from search results
+  type Candidate = { url: string; cat: keyof VerifiedLinks }
+  const candidates: Candidate[] = []
+
+  // Always include the trail's source URL from search data (most reliable)
+  if (trail.source_url && trail.source_url.startsWith('http')) {
+    candidates.push({ url: trail.source_url, cat: 'trail' })
+    seen.add(trail.source_url)
+  }
+
+  for (const r of searchResults) {
     if (r.status !== 'fulfilled') continue
-    const { url, cat, status } = r.value
-    if (status === 'relevant' && result[cat]) {
+    for (const url of r.value.urls) {
+      if (!seen.has(url) && url.startsWith('http')) {
+        seen.add(url)
+        candidates.push({ url, cat: r.value.cat })
+      }
+    }
+  }
+
+  // ── 3. Verify each URL actually contains content about THIS trail ──
+  statusFn(`Checking ${candidates.length} links for relevance...`)
+  const checks = await Promise.allSettled(
+    candidates.map(async ({ url, cat }) => {
+      const relevant = await fetchAndCheck(url, trail)
+      return { url, cat, relevant }
+    })
+  )
+
+  for (const r of checks) {
+    if (r.status !== 'fulfilled') continue
+    const { url, cat, relevant } = r.value
+    if (relevant && result[cat]) {
       result[cat]!.push(url)
     }
   }
 
-  // Ensure at least the trail source URL is included even if fetch failed
-  // (the user can try it themselves)
-  if (result.trail.length === 0 && trail.source_url) {
-    result.trail.push(trail.source_url)
-  }
+  // ── 4. Dedupe and cap per category ──
+  const cap = (arr: string[], max: number) => [...new Set(arr)].slice(0, max)
+  result.trail = cap(result.trail, 5)
+  result.maps = cap(result.maps, 3)
+  result.trip_reports = cap(result.trip_reports, 4)
+  if (result.river_data) result.river_data = cap(result.river_data, 4)
 
-  statusFn(`Verified ${[...result.trail, ...result.maps, ...result.trip_reports, ...(result.river_data || [])].length} links`)
+  const total = result.trail.length + result.maps.length +
+    result.trip_reports.length + (result.river_data?.length || 0)
+  statusFn(`Found ${total} verified links`)
 
   return result
 }
@@ -216,7 +245,7 @@ HARD RULES — never break these:
 2. Mileage, elevation, and time estimates must come from the trail data provided — never invent them. If a field is missing, write "[verify]".
 3. Rapids must be sourced from American Whitewater, state river guides, or NPS. Do not invent rapid names or class ratings.
 4. Legal campsites only. Only list designated or primitive FCFS sites on government sources. Never suggest "just camp anywhere."
-5. Links must be real URLs from the trail data provided. Do not generate URLs from memory.
+5. For the "links" field, return empty arrays — links are handled separately via web search. Do not generate URLs from memory.
 
 PACE & TIME FORMULAS:
 - Hiking base pace: 2.0 mph flat/moderate, 1.5 mph strenuous
@@ -397,15 +426,11 @@ Return JSON matching this exact structure:
           json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
           const sheet = JSON.parse(json)
 
-          // Verify & enhance links — fetches each URL, checks page content
-          // for relevance to the specific trail, replaces hallucinated links
-          const verifiedLinks = await verifyAndEnhanceLinks(
-            sheet.links,
-            trail,
-            isKayak,
-            s,
-          )
-          sheet.links = verifiedLinks
+          // Throw out Claude's hallucinated links entirely.
+          // Search the web for REAL pages about this specific trail,
+          // verify each one contains content about THIS trail.
+          const realLinks = await findRealLinks(trail, isKayak, s)
+          sheet.links = realLinks
 
           controller.enqueue(encoder.encode(JSON.stringify({ sheet })))
           controller.close()
