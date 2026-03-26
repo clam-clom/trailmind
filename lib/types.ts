@@ -22,6 +22,17 @@ export interface SearchResponse {
   query: string
 }
 
+// ── Structured Search ─────────────────────────────────────────────────────────
+
+export interface SearchQuery {
+  activity: 'hike' | 'backpack' | 'kayak'
+  duration: 'day' | '1_night' | '2-3_nights' | '4-7_nights' | '7-14_nights'
+  difficulty: 'easy' | 'moderate' | 'hard' | 'strenuous' | 'surprise'
+  distance_from_nyc: 'under_1hr' | '1-2hrs' | '2-3hrs' | '3plus' | 'any'
+  features: string[]
+  notes: string // max 200 chars
+}
+
 export type InteractionStatus = 'saved' | 'completed' | 'passed' | 'critiqued'
 
 export interface Interaction {
@@ -78,6 +89,7 @@ export interface FoodPlan {
   days: FoodDay[]
   totals: string[]
   weight_guideline: string
+  summary?: string // For long trips (>14 days) — replaces per-day breakdown
 }
 
 export interface GearList {

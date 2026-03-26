@@ -209,9 +209,23 @@ function GearSection({ gear }: { gear: GearList }) {
   )
 }
 
-function FoodSection({ food }: { food: FoodPlan }) {
+function FoodSection({ food }: { food: FoodPlan & { summary?: string } }) {
   return (
     <div>
+      {/* Long trip summary (no per-day breakdown) */}
+      {food.summary && (
+        <div
+          className="rounded-xl p-4 mb-5"
+          style={{ background: '#edf1e4', border: '1px solid #c0ceac' }}
+        >
+          <p className="label-caps mb-2" style={{ color: '#0D3323' }}>Trip Food Summary</p>
+          <p className="text-sm" style={{ color: '#4a6858', lineHeight: 1.7 }}>
+            <VerifyText text={food.summary} />
+          </p>
+        </div>
+      )}
+
+      {/* Per-day breakdown (only shown if days array has entries) */}
       <div className="space-y-3 mb-5">
         {food.days.map((day) => (
           <div

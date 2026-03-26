@@ -238,6 +238,18 @@ export async function POST(req: NextRequest) {
     const isOvernight = quiz.duration !== 'day'
     const isKayak = quiz.trip_type === 'kayak_day' || quiz.trip_type === 'kayak_expedition'
 
+    // Estimate trip duration in days
+    const durationDays =
+      quiz.duration === 'day' ? 1
+      : quiz.duration === '1_night' ? 2
+      : quiz.duration === '2-3_nights' ? 3
+      : Math.max(5, Math.ceil(trail.estimated_hours / 8))
+
+    // For very long trips (>14 days), cap the daily breakdown to keep
+    // the output useful. Nobody plans day 47 from a single AI prompt.
+    const isLongTrip = durationDays > 14
+    const DAILY_CAP = 14
+
     const systemPrompt = `You are TrailMind's DOPE Sheet generator. You create NOLS-style trip planning documents for Northeast US outdoor trips. You follow a strict format derived from field-tested expedition planning.
 
 HARD RULES — never break these:
@@ -263,6 +275,13 @@ FOOD WEIGHT (NOLS standard):
 - Suggest meal NAMES only — no recipes, no ingredient lists, no calorie counts
 - Scale quantities for the group size
 
+${isLongTrip ? `
+LONG TRIP RULES (this trip is ${durationDays} days):
+- DAILY BREAKDOWN: Only generate detailed day-by-day entries for the FIRST 7 days and the LAST 2 days. For the middle section (Days 8 through ${durationDays - 2}), generate ONE summary entry with day=0, label="Days 8–${durationDays - 2} — Middle Section (summary)", total miles, general terrain description, key waypoints, and a note that this section should be planned in detail closer to the trip.
+- FOOD PLAN: Do NOT list per-day meals. Instead provide a food_plan with an empty "days" array, totals showing the full trip counts, weight_guideline, and a "summary" field with 5-6 sample meal ideas and the total food weight estimate.
+- EVAC PLAN: Only generate evac sections for the first 3 days and last 2 days. Add one general middle-section evac note.
+- Keep gear list, safety callouts, and links the same as normal.
+` : ''}
 Return ONLY valid JSON. No markdown, no code fences, no explanation text.`
 
     const userPrompt = `Generate a DOPE Sheet for this trip.

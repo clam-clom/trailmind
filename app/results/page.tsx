@@ -4,7 +4,6 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TrailCard from '@/components/TrailCard'
-import SearchInput from '@/components/SearchInput'
 import { Trail } from '@/lib/types'
 
 function ResultsContent() {
@@ -103,14 +102,18 @@ function ResultsContent() {
         <span>{query}</span>
       </div>
 
-      {/* Search section */}
+      {/* New search link */}
       <div
-        className="px-6 py-5"
+        className="px-6 py-3 flex justify-center"
         style={{ background: '#e8edda', borderBottom: '1px solid #bfcaac' }}
       >
-        <div className="max-w-2xl mx-auto">
-          <SearchInput initialValue={query} />
-        </div>
+        <Link
+          href="/"
+          className="pill-btn px-5 py-2 text-xs"
+          style={{ background: '#edf1e4', border: '1px solid #c0ceac', color: '#0D3323' }}
+        >
+          ← New search
+        </Link>
       </div>
 
       {/* Results */}

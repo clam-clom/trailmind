@@ -1,4 +1,4 @@
-import SearchInput from '@/components/SearchInput'
+import SearchQuiz from '@/components/SearchQuiz'
 
 export default function Home() {
   return (
@@ -12,8 +12,8 @@ export default function Home() {
       </nav>
 
       {/* Center content */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-24">
-        <div className="w-full max-w-xl text-center mb-10">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
+        <div className="w-full max-w-lg text-center mb-10">
           <h1
             className="mb-3 leading-tight"
             style={{
@@ -23,7 +23,7 @@ export default function Home() {
               color: '#0D3323',
             }}
           >
-            Tell me what you&apos;re looking for.
+            Plan your next adventure.
           </h1>
           <p
             className="text-sm"
@@ -33,9 +33,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="w-full max-w-xl">
-          <SearchInput autoFocus />
-        </div>
+        <SearchQuiz />
 
         <p
           className="mt-10 text-xs"
