@@ -55,6 +55,7 @@ export interface DopeSheetQuizAnswers {
   trip_type: 'hike' | 'backpack' | 'kayak_day' | 'kayak_expedition'
   group_size: 'solo' | '2' | '3-4' | '5+'
   duration_days: number // 1-30
+  duration_hours?: number // 1-16, for day trips (hike / kayak_day)
   season: 'spring' | 'summer' | 'fall' | 'winter'
   experience: 'first_timer' | 'some_experience' | 'comfortable' | 'very_experienced'
 }

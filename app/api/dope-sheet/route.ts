@@ -316,7 +316,7 @@ ${JSON.stringify(trail, null, 2)}
 Quiz answers:
 - Trip type: ${quiz.trip_type}
 - Group size: ${quiz.group_size} (${groupNum} ${groupNum === 1 ? 'person' : 'people'})
-- Duration: ${quiz.duration_days} ${quiz.duration_days === 1 ? 'day' : 'days'}
+- Duration: ${quiz.duration_hours ? `${quiz.duration_hours} hours (day trip)` : `${quiz.duration_days} ${quiz.duration_days === 1 ? 'day' : 'days'}`}
 - Season: ${quiz.season}
 - Experience level: ${quiz.experience}
 
