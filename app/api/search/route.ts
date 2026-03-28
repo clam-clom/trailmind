@@ -117,22 +117,34 @@ async function verifyUrl(url: string, trailName: string): Promise<boolean> {
   }
 }
 
-// Find the best real URL for a trail — search, verify page exists and mentions trail
-async function findRealUrl(trail: Trail): Promise<string | null> {
-  const name = trail.name
-  const state = trail.state
+// Result: verified URL, or null (trail doesn't exist), or 'infra_fail' (couldn't check)
+type UrlResult = string | null | 'infra_fail'
 
-  // Search for the trail on known good sites
+async function findRealUrl(trail: Trail): Promise<UrlResult> {
+  const name = trail.name
+
+  // Step 1: Try Claude's URL directly — if it's on an allowed domain and the
+  // page exists with the trail name on it, use it immediately
+  if (trail.source_url && trail.source_url.startsWith('http') && isAllowedDomain(trail.source_url)) {
+    const ok = await verifyUrl(trail.source_url, name)
+    if (ok) return trail.source_url
+  }
+
+  // Step 2: Search DuckDuckGo for a real page
   const queries = [
     `"${name}" site:alltrails.com`,
-    `"${name}" ${state} trail`,
+    `"${name}" ${trail.state} trail`,
   ]
+
+  let searchWorked = false // track if DuckDuckGo actually returned results
 
   for (const q of queries) {
     const urls = await webSearch(q, 4)
-    // Check all candidate URLs in parallel
+    if (urls.length > 0) searchWorked = true
+
+    const candidates = urls.filter(isAllowedDomain)
     const checks = await Promise.allSettled(
-      urls.filter(isAllowedDomain).map(async (url) => {
+      candidates.map(async (url) => {
         const ok = await verifyUrl(url, name)
         return { url, ok }
       })
@@ -142,8 +154,12 @@ async function findRealUrl(trail: Trail): Promise<string | null> {
     }
   }
 
-  // No verified URL found
-  return null
+  // If DuckDuckGo returned results but none verified → trail likely doesn't exist
+  if (searchWorked) return null
+
+  // If DuckDuckGo itself failed (rate limited, blocked, etc.) → infrastructure failure,
+  // not proof the trail doesn't exist
+  return 'infra_fail'
 }
 
 const SYSTEM_PROMPT = `You are TrailMind, an expert outdoor activity guide for the Northeast US (NY, NJ, CT, PA).
@@ -377,11 +393,19 @@ export async function POST(req: NextRequest) {
           const verified: Trail[] = []
           for (let i = 0; i < trails.length; i++) {
             const r = urlResults[i]
-            if (r.status === 'fulfilled' && r.value) {
-              trails[i].source_url = r.value
+            if (r.status !== 'fulfilled') continue
+            const result = r.value
+
+            if (typeof result === 'string' && result !== 'infra_fail') {
+              // Got a verified URL — trail is real
+              trails[i].source_url = result
+              verified.push(trails[i])
+            } else if (result === 'infra_fail') {
+              // Search infrastructure failed (rate limited, etc.) — keep trail
+              // with Claude's URL since we can't confirm or deny
               verified.push(trails[i])
             }
-            // If no verified URL → trail is likely hallucinated, drop it entirely
+            // result === null → search worked but trail not found → drop it
           }
 
           s(`${verified.length} verified trails`)
