@@ -7,28 +7,32 @@ You know trails, paddling routes, and backpacking destinations in this region de
 
 You will receive a STRUCTURED search query with specific parameters. Use these parameters to find matching trails. Return a JSON array of 8 trail/activity suggestions. Each suggestion must be a REAL place that exists in the Northeast US.
 
+PACE CALCULATIONS:
+- Average hiker: 1.5 mph + add 1 hour for every 1,000 ft of elevation gained or lost
+- Average paddler: 2 mph in flat water / lakes / ponds, 3 mph in rivers / running water
+
 DIFFICULTY RANKING — use these exact criteria:
 
 EASY:
-- Max 4 hours of active hiking per day
-- Less than 1,000 ft elevation gain per day
+- 4 hours of active hiking per day
+- Less than 1,000 ft elevation per day
 - No rock scrambles
 - Lots of places to get water
-- Designated campsites available (if overnight)
+- Designated campsites (if overnight)
 - No rapids above Class I, no portages
 - Under 4 hours of active paddling per day
 
 MODERATE:
-- Up to 6 hours of active hiking per day
-- 500–1,000 ft elevation gain per day
+- 6 hours of active hiking per day
+- 500–1,000 ft elevation per day
 - Easy rock scrambles only
 - Lots of water sources, or slightly limited but manageable
-- Designated campsites + backcountry campsites available
+- Designated campsites + backcountry campsites
 - Rapids max Class II½, OR over 4 hours of active paddling per day
 
 HARD / STRENUOUS:
-- Up to 7 hours of active hiking per day
-- 1,000–2,500 ft elevation gain per day
+- 7 hours of active hiking per day
+- 1,000–2,500 ft elevation per day
 - Rock scrambles present
 - Limited or no water sources
 - Very few campsites
@@ -41,16 +45,23 @@ DAY LIMITS — never exceed these:
 - Paddling: max 6 hours of active paddling per day
 - The "estimated_hours" field must reflect ACTUAL active time, not drive time
 
-DURATION-BASED MILEAGE — the trail MUST be long enough to fill the requested days:
-- Easy hiking: minimum 3 miles/day × number of days (e.g. 12-day easy = at least 36 miles)
-- Moderate hiking: minimum 5 miles/day × number of days
-- Hard/strenuous hiking: minimum 7 miles/day × number of days
-- Easy paddling: minimum 8 miles/day × number of days
-- Moderate paddling: minimum 12 miles/day × number of days
-- Hard paddling: minimum 15 miles/day × number of days
-- estimated_hours must equal at least (number of days × 3) for easy, (days × 5) for moderate, (days × 6) for hard
-- If the user requests a multi-day trip (2+ days), ONLY return trails/routes long enough to actually fill that many days. A 4-mile trail CANNOT be a 12-day hike. Think about this carefully before including any result.
-- Multi-day hiking trips (2+ days) should be thru-hikes, long loops, or point-to-point routes — NOT short day-hike loops.
+MULTI-DAY TRIP HOUR RANGES — use these to size trails correctly:
+Hiking (per 5 days, scale proportionally):
+- 5-day easy = 10–20 hrs active hiking total
+- 5-day moderate = 20–30 hrs active hiking total
+- 5-day strenuous = 25–35 hrs active hiking total
+Paddling (per 5 days, scale proportionally):
+- 5-day easy = 5–20 hrs active paddling total
+- 5-day moderate = 15–25 hrs active paddling total
+- 5-day strenuous = 30–35 hrs active paddling total
+
+LAYOVER DAYS: max 1 layover day per trip. Most days the group should be moving/hiking/paddling to their next campsite.
+
+CRITICAL — TRAIL LENGTH MUST MATCH DURATION:
+- Use the pace calculations and hour ranges above to determine minimum trail distance.
+- If the user requests a multi-day trip (2+ days), ONLY return trails/routes long enough to fill that many days. A 4-mile trail CANNOT be a 12-day hike.
+- Multi-day hiking trips (2+ days) must be thru-hikes, long loops, or point-to-point routes — NOT short day-hike loops.
+- Use the length of trail and its topography to determine actual time. Do not guess.
 
 Return ONLY valid JSON, no other text. Format:
 [
@@ -108,14 +119,19 @@ function buildUserPrompt(q: SearchQuery): string {
     any: 'any distance from NYC',
   }[q.distance_from_nyc]
 
-  // Calculate minimum mileage so Claude can't return short trails for long trips
+  // Calculate minimum hours and miles so Claude can't return short trails for long trips
   let mileageNote = ''
   if (days > 1) {
-    const milesPerDay = q.activity === 'kayak'
-      ? { easy: 8, moderate: 12, hard: 15, strenuous: 15, surprise: 8 }[q.difficulty]
-      : { easy: 3, moderate: 5, hard: 7, strenuous: 7, surprise: 3 }[q.difficulty]
-    const minMiles = milesPerDay * days
-    mileageNote = `\nMINIMUM total distance: ${minMiles} miles (${milesPerDay} mi/day × ${days} days). Do NOT return any trail shorter than this.`
+    // Hours per 5 days (low end of range), scaled to requested days
+    const isKayak = q.activity === 'kayak'
+    const hoursPerFiveDays = isKayak
+      ? { easy: 5, moderate: 15, hard: 30, strenuous: 30, surprise: 5 }[q.difficulty]
+      : { easy: 10, moderate: 20, hard: 25, strenuous: 25, surprise: 10 }[q.difficulty]
+    const minHours = Math.round(hoursPerFiveDays * (days / 5))
+    // Pace: hiker 1.5 mph, paddler 2 mph flat / 3 mph river (use 2.5 avg)
+    const pace = isKayak ? 2.5 : 1.5
+    const minMiles = Math.round(minHours * pace)
+    mileageNote = `\nThis is a ${days}-day trip. MINIMUM active hours: ~${minHours}h. MINIMUM total distance: ~${minMiles} miles (at ${pace} mph avg pace). Do NOT return any trail shorter than this. Use trail length and topography to verify.`
   }
 
   const parts = [

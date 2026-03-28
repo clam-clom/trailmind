@@ -281,14 +281,15 @@ HARD RULES — never break these:
 5. For the "links" field, return empty arrays — links are handled separately via web search. Do not generate URLs from memory.
 
 PACE & TIME FORMULAS:
-- Hiking base pace: 2.0 mph flat/moderate, 1.5 mph strenuous
-- Add 1 hour per 500 ft elevation gain to hiking time
+- Average hiker: 1.5 mph + add 1 hour for every 1,000 ft of elevation gained or lost
+- Average paddler: 2 mph in flat water / lakes / ponds, 3 mph in rivers / running water
+- Kayak by class: 2.5 mph flatwater/Class I, 2.0 mph Class II, 1.5 mph or "scout + portage" Class III+
 - HARD CAP: Never exceed 7–8 hours of active hiking per day. If a day would exceed this, split it across multiple days.
 - HARD CAP: Never exceed 6 hours of active paddling per day. If a section would exceed this, split it.
 - Water breaks: 5 min every 30 min of hiking
 - Snack breaks: 10–15 min every 1 hour of hiking
 - Allotted time = expected time + 30 min buffer
-- Kayak pace: 2.5 mph flatwater/Class I, 2.0 mph Class II, 1.5 mph or "scout + portage" Class III+
+- LAYOVER DAYS: max 1 layover day per trip. Most days the group should be moving to their next campsite.
 
 FOOD WEIGHT (NOLS standard):
 - Mild/short (summer, easy): ~1.5 lbs/person/day
