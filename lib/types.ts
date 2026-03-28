@@ -15,6 +15,7 @@ export interface Trail {
   permit_required: boolean
   source: 'NYNJTC' | 'NPS' | 'AllTrails' | 'AW' | 'NYS DEC'
   source_url: string
+  _linkLabel?: string // "Find on Google" or undefined (means direct link)
 }
 
 export interface SearchResponse {
@@ -123,11 +124,13 @@ export interface Rapid {
   source: string
 }
 
+export type LinkItem = string | { url: string; label: string }
+
 export interface DopeSheetLinks {
-  trail: string[]
-  maps: string[]
-  trip_reports: string[]
-  river_data?: string[]
+  trail: LinkItem[]
+  maps: LinkItem[]
+  trip_reports: LinkItem[]
+  river_data?: LinkItem[]
 }
 
 export interface DopeSheet {

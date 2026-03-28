@@ -2,170 +2,107 @@ import { NextRequest, NextResponse } from 'next/server'
 import { anthropic } from '@/lib/anthropic'
 import { SearchQuery, Trail } from '@/lib/types'
 
-// ── Real link discovery ──────────────────────────────────────────────
-// Claude hallucinates source_url. After search, we replace each trail's
-// source_url with a real page found via DuckDuckGo web search.
+// ── Link resolution ──────────────────────────────────────────────────
+// Claude hallucinates URLs. We NEVER use Claude's source_url.
+// Instead:
+//   1. NPS trails → query the official NPS API (free, public, legal)
+//   2. Everything else → construct a Google search link the user clicks
+// No DuckDuckGo scraping. No fetching random URLs. No hallucinated links.
 
-const ALLOWED_DOMAINS = [
-  'alltrails.com', 'nynjtc.org', 'nps.gov', 'dec.ny.gov',
-  'americanwhitewater.org', 'dcnr.pa.gov', 'portal.ct.gov',
-  'outdoors.org', 'waterdata.usgs.gov',
-]
+const NPS_API_KEY = process.env.NPS_API_KEY || 'DEMO_KEY'
 
-async function webSearch(query: string, max = 5): Promise<string[]> {
-  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+interface NpsResult {
+  url: string
+  title: string
+}
+
+// Search the NPS "things to do" endpoint for a specific trail/activity
+async function searchNps(trailName: string, stateCode: string): Promise<NpsResult | null> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 6000)
   try {
-    const res = await fetch(searchUrl, {
-      signal: ctrl.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        Accept: 'text/html',
-      },
-    })
+    // Try "things to do" first — this has specific hikes/trails
+    const ttdUrl = `https://developer.nps.gov/api/v1/thingstodo?q=${encodeURIComponent(trailName)}&stateCode=${stateCode.toLowerCase()}&limit=5&api_key=${NPS_API_KEY}`
+    const res = await fetch(ttdUrl, { signal: ctrl.signal })
     clearTimeout(timer)
-    if (!res.ok) return []
-    const html = await res.text()
-    const urls: string[] = []
-    const uddgRegex = /uddg=([^&"]+)/g
-    let match
-    while ((match = uddgRegex.exec(html)) !== null && urls.length < max) {
-      try {
-        const decoded = decodeURIComponent(match[1])
-        if (decoded.startsWith('http') && !decoded.includes('duckduckgo.com')) {
-          urls.push(decoded)
-        }
-      } catch {}
-    }
-    if (urls.length === 0) {
-      const hrefRegex = /class="result__a"\s+href="(https?[^"]+)"/g
-      while ((match = hrefRegex.exec(html)) !== null && urls.length < max) {
-        urls.push(match[1])
+    if (!res.ok) return null
+
+    const json = await res.json()
+    const nameLower = trailName.toLowerCase()
+
+    // Look for a result whose title contains the trail name
+    for (const item of json.data || []) {
+      const title = (item.title || '').toLowerCase()
+      if (title.includes(nameLower) || nameLower.includes(title)) {
+        return { url: item.url, title: item.title }
+      }
+      // Try matching core name (before dashes/colons)
+      const coreName = nameLower.split(/\s*[—–:\-]\s*/)[0].trim()
+      if (coreName.length > 5 && title.includes(coreName)) {
+        return { url: item.url, title: item.title }
       }
     }
-    return urls
-  } catch {
-    clearTimeout(timer)
-    return []
-  }
-}
 
-function isAllowedDomain(url: string): boolean {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '')
-    return ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
-  } catch {
-    return false
-  }
-}
+    // Fallback: try parks endpoint for the broader area
+    const ctrl2 = new AbortController()
+    const timer2 = setTimeout(() => ctrl2.abort(), 5000)
+    const parksUrl = `https://developer.nps.gov/api/v1/parks?q=${encodeURIComponent(trailName)}&stateCode=${stateCode.toLowerCase()}&limit=3&api_key=${NPS_API_KEY}`
+    const res2 = await fetch(parksUrl, { signal: ctrl2.signal })
+    clearTimeout(timer2)
+    if (!res2.ok) return null
 
-// Fetch a URL and verify it actually exists and mentions this trail
-async function verifyUrl(url: string, trailName: string): Promise<boolean> {
-  if (!isAllowedDomain(url)) return false
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), 5000)
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        Accept: 'text/html,application/xhtml+xml,*/*',
-      },
-    })
-    clearTimeout(timer)
-    if (!res.ok) return false
-
-    // Read first ~15KB
-    const reader = res.body?.getReader()
-    if (!reader) return false
-    const decoder = new TextDecoder()
-    let text = ''
-    while (text.length < 15000) {
-      const { done, value } = await reader.read()
-      if (done) break
-      text += decoder.decode(value, { stream: true })
-    }
-    reader.cancel()
-
-    const lower = text.toLowerCase()
-
-    // Must have real content (not error/login/empty page)
-    const textOnly = lower.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-    if (textOnly.length < 300) return false
-
-    // Must mention the trail name (full or core part before dash/em-dash)
-    const fullName = trailName.toLowerCase()
-    if (lower.includes(fullName)) return true
-
-    // Try core name (before "—", "–", "-")
-    const dashSplit = trailName.split(/\s*[—–\-]\s*/)
-    if (dashSplit.length > 1) {
-      const core = dashSplit[0].toLowerCase().trim()
-      if (core.length > 5 && lower.includes(core)) return true
+    const json2 = await res2.json()
+    for (const park of json2.data || []) {
+      const fullName = (park.fullName || '').toLowerCase()
+      const coreName = nameLower.split(/\s*[—–:\-]\s*/)[0].trim()
+      if (fullName.includes(coreName) || coreName.includes(fullName)) {
+        return { url: park.url, title: park.fullName }
+      }
     }
 
-    // Try without common suffixes like "Trail", "Loop", "Path"
-    const stripped = fullName.replace(/\s+(trail|loop|path|route|circuit|out\s*&?\s*back)$/i, '').trim()
-    if (stripped.length > 5 && stripped !== fullName && lower.includes(stripped)) return true
-
-    return false
+    return null
   } catch {
     clearTimeout(timer)
-    return false
+    return null
   }
 }
 
-// Result: verified URL, or null (trail doesn't exist), or 'infra_fail' (couldn't check)
-type UrlResult = string | null | 'infra_fail'
+// Build a Google search link for a trail — user clicks this to find the real page
+function buildSearchLink(trailName: string, state: string): string {
+  const query = `"${trailName}" ${state} trail alltrails OR nps.gov OR dec.ny.gov`
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`
+}
 
-async function findRealUrl(trail: Trail): Promise<UrlResult> {
-  const name = trail.name
+// Resolve a real link for each trail
+async function resolveLink(trail: Trail): Promise<{ url: string; label: string }> {
+  const stateMap: Record<string, string> = { NY: 'ny', NJ: 'nj', CT: 'ct', PA: 'pa' }
+  const stateCode = stateMap[trail.state] || trail.state.toLowerCase()
 
-  // Step 1: Try Claude's URL directly — if it's on an allowed domain and the
-  // page exists with the trail name on it, use it immediately
-  if (trail.source_url && trail.source_url.startsWith('http') && isAllowedDomain(trail.source_url)) {
-    const ok = await verifyUrl(trail.source_url, name)
-    if (ok) return trail.source_url
-  }
-
-  // Step 2: Search DuckDuckGo for a real page
-  const queries = [
-    `"${name}" site:alltrails.com`,
-    `"${name}" ${trail.state} trail`,
-  ]
-
-  let searchWorked = false // track if DuckDuckGo actually returned results
-
-  for (const q of queries) {
-    const urls = await webSearch(q, 4)
-    if (urls.length > 0) searchWorked = true
-
-    const candidates = urls.filter(isAllowedDomain)
-    const checks = await Promise.allSettled(
-      candidates.map(async (url) => {
-        const ok = await verifyUrl(url, name)
-        return { url, ok }
-      })
-    )
-    for (const r of checks) {
-      if (r.status === 'fulfilled' && r.value.ok) return r.value.url
+  // For NPS-sourced trails, try the official API first
+  if (trail.source === 'NPS') {
+    const npsResult = await searchNps(trail.name, stateCode)
+    if (npsResult) {
+      return { url: npsResult.url, label: 'View on NPS' }
     }
   }
 
-  // If DuckDuckGo returned results but none verified → trail likely doesn't exist
-  if (searchWorked) return null
-
-  // If DuckDuckGo itself failed (rate limited, blocked, etc.) → infrastructure failure,
-  // not proof the trail doesn't exist
-  return 'infra_fail'
+  // For all other sources (or if NPS lookup failed), use a Google search link
+  return {
+    url: buildSearchLink(trail.name, trail.state),
+    label: 'Find on Google',
+  }
 }
+
+// ── System prompt ────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `You are TrailMind, an expert outdoor activity guide for the Northeast US (NY, NJ, CT, PA).
 You know trails, paddling routes, and backpacking destinations in this region deeply.
 
 You will receive a STRUCTURED search query with specific parameters. Use these parameters to find matching trails. Return a JSON array of 8 trail/activity suggestions. Each suggestion must be a REAL place that exists in the Northeast US.
+
+IMPORTANT — URLs:
+- Set source_url to an EMPTY STRING for every trail. Do NOT generate URLs. Links are handled separately.
+- Still set "source" to the correct data source name (e.g. "NPS", "AllTrails", "NYS DEC").
 
 PACE CALCULATIONS:
 - Average hiker: 1.5 mph + add 1 hour for every 1,000 ft of elevation gained or lost
@@ -241,7 +178,7 @@ Return ONLY valid JSON, no other text. Format:
     "transit_accessible": boolean,
     "permit_required": boolean,
     "source": "NYNJTC" | "NPS" | "AllTrails" | "AW" | "NYS DEC",
-    "source_url": "https://..."
+    "source_url": ""
   }
 ]
 
@@ -285,12 +222,10 @@ function buildUserPrompt(q: SearchQuery): string {
   // Calculate minimum hours and miles so Claude can't return short trails for long trips
   let mileageNote = ''
   if (hours && days === 1) {
-    // Day hike — use hours directly to set expected trail length
     const pace = q.activity === 'kayak' ? 2.5 : 1.5
     const expectedMiles = Math.round(hours * pace)
     mileageNote = `\nThis is a ${hours}-hour day trip. Trails should take roughly ${hours} hours of active time (~${expectedMiles} miles at ${pace} mph). Do NOT return trails significantly shorter or longer than this.`
   } else if (days > 1) {
-    // Multi-day — use hour ranges scaled from 5-day benchmarks
     const isKayak = q.activity === 'kayak'
     const hoursPerFiveDays = isKayak
       ? { easy: 5, moderate: 15, hard: 30, strenuous: 30, surprise: 5 }[q.difficulty]
@@ -329,7 +264,6 @@ export async function POST(req: NextRequest) {
     let queryLabel: string
 
     if (body.structured) {
-      // New structured search
       const sq: SearchQuery = body.structured
       userPrompt = buildUserPrompt(sq)
       queryLabel = sq.duration_hours && sq.duration_days === 1
@@ -385,31 +319,31 @@ export async function POST(req: NextRequest) {
           }
           const trails: Trail[] = JSON.parse(jsonText)
 
-          // Verify every trail exists online — drop any that can't be verified
-          s('Verifying trails are real...')
-          const urlResults = await Promise.allSettled(
-            trails.map((t) => findRealUrl(t))
+          // Resolve real links for every trail
+          s('Finding real links...')
+          const linkResults = await Promise.allSettled(
+            trails.map((t) => resolveLink(t))
           )
-          const verified: Trail[] = []
           for (let i = 0; i < trails.length; i++) {
-            const r = urlResults[i]
-            if (r.status !== 'fulfilled') continue
-            const result = r.value
-
-            if (typeof result === 'string' && result !== 'infra_fail') {
-              // Got a verified URL — trail is real
-              trails[i].source_url = result
-              verified.push(trails[i])
-            } else if (result === 'infra_fail') {
-              // Search infrastructure failed (rate limited, etc.) — keep trail
-              // with Claude's URL since we can't confirm or deny
-              verified.push(trails[i])
+            const r = linkResults[i]
+            if (r.status === 'fulfilled') {
+              trails[i].source_url = r.value.url
+              // Store the label so the UI knows what to show
+              // We piggyback on the source field for display:
+              // "NPS" stays "NPS" if we got a direct link,
+              // otherwise we change source display to indicate it's a search link
+              if (r.value.label === 'Find on Google') {
+                trails[i]._linkLabel = 'Find on Google'
+              }
+            } else {
+              // Promise rejected — use Google search fallback
+              trails[i].source_url = buildSearchLink(trails[i].name, trails[i].state)
+              trails[i]._linkLabel = 'Find on Google'
             }
-            // result === null → search worked but trail not found → drop it
           }
 
-          s(`${verified.length} verified trails`)
-          const data = { trails: verified, query: queryLabel }
+          s(`${trails.length} trails ready`)
+          const data = { trails, query: queryLabel }
           controller.enqueue(encoder.encode(JSON.stringify(data)))
         } catch (err) {
           console.error('Search error:', err)

@@ -300,18 +300,22 @@ export default function TrailDetailPage() {
           </div>
         )}
 
-        {/* Source — every trail has a verified URL */}
-        <div className="mb-6">
-          <a
-            href={trail.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm underline"
-            style={{ color: '#0D3323' }}
-          >
-            View on {trail.source} →
-          </a>
-        </div>
+        {/* Source link */}
+        {trail.source_url && (
+          <div className="mb-6">
+            <a
+              href={trail.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm underline"
+              style={{ color: '#0D3323' }}
+            >
+              {trail._linkLabel === 'Find on Google'
+                ? `Find ${trail.name} on Google →`
+                : `View on ${trail.source} →`}
+            </a>
+          </div>
+        )}
 
         {/* DOPE Sheet loading state */}
         {dopeLoading && (

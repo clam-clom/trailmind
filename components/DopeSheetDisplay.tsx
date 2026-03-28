@@ -404,7 +404,10 @@ function LinksSection({ links, isKayak }: { links: DopeSheetLinks; isKayak: bool
         <div key={group.label}>
           <p className="label-caps mb-2">{group.label}</p>
           <ul className="space-y-1.5">
-            {group.items.map((url, i) => {
+            {group.items.map((item, i) => {
+              // Support both old format (plain string) and new format ({url, label})
+              const url = typeof item === 'string' ? item : item.url
+              const displayLabel = typeof item === 'string' ? item : item.label
               const isVerify = /\[verify\]/i.test(url)
               return (
                 <li key={i} className="text-sm">
@@ -418,7 +421,7 @@ function LinksSection({ links, isKayak }: { links: DopeSheetLinks; isKayak: bool
                       className="underline break-all"
                       style={{ color: '#0D3323' }}
                     >
-                      {url}
+                      {displayLabel}
                     </a>
                   )}
                 </li>

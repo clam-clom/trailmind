@@ -3,249 +3,105 @@ import { NextRequest, NextResponse } from 'next/server'
 import { anthropic } from '@/lib/anthropic'
 import { Trail, DopeSheetQuizAnswers } from '@/lib/types'
 
-// ── Link discovery via web search ─────────────────────────────────
-// Claude hallucinates URLs. Instead of trusting them, we throw them
-// out entirely and search the web for REAL pages about this specific
-// trail. Uses DuckDuckGo HTML search to find actual URLs, then
-// verifies each one contains content about this trail.
+// ── Link resolution for DOPE sheets ──────────────────────────────
+// Claude hallucinates URLs. We NEVER use Claude's links.
+// Instead:
+//   1. NPS trails → query the official NPS API (free, public, legal)
+//   2. Everything else → construct Google search links the user clicks
+// No DuckDuckGo scraping. No fetching random URLs. Fully legal.
 
-interface VerifiedLinks {
-  trail: string[]
-  maps: string[]
-  trip_reports: string[]
-  river_data?: string[]
+const NPS_API_KEY = process.env.NPS_API_KEY || 'DEMO_KEY'
+
+interface ResolvedLinks {
+  trail: { url: string; label: string }[]
+  maps: { url: string; label: string }[]
+  trip_reports: { url: string; label: string }[]
+  river_data?: { url: string; label: string }[]
 }
 
-// Search DuckDuckGo HTML and extract result URLs
-async function webSearch(query: string, max = 5): Promise<string[]> {
-  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+// Search the NPS API for a specific trail
+async function searchNps(trailName: string, stateCode: string): Promise<string | null> {
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), 8000)
+  const timer = setTimeout(() => ctrl.abort(), 6000)
   try {
-    const res = await fetch(searchUrl, {
-      signal: ctrl.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        Accept: 'text/html',
-      },
-    })
+    const url = `https://developer.nps.gov/api/v1/thingstodo?q=${encodeURIComponent(trailName)}&stateCode=${stateCode.toLowerCase()}&limit=5&api_key=${NPS_API_KEY}`
+    const res = await fetch(url, { signal: ctrl.signal })
     clearTimeout(timer)
-    if (!res.ok) return []
-    const html = await res.text()
-
-    // Extract result URLs from DuckDuckGo HTML results
-    const urls: string[] = []
-    // DuckDuckGo uses redirect links: //duckduckgo.com/l/?uddg=ENCODED_URL
-    const uddgRegex = /uddg=([^&"]+)/g
-    let match
-    while ((match = uddgRegex.exec(html)) !== null && urls.length < max) {
-      try {
-        const decoded = decodeURIComponent(match[1])
-        if (decoded.startsWith('http') && !decoded.includes('duckduckgo.com')) {
-          urls.push(decoded)
-        }
-      } catch {}
+    if (!res.ok) return null
+    const json = await res.json()
+    const nameLower = trailName.toLowerCase()
+    for (const item of json.data || []) {
+      const title = (item.title || '').toLowerCase()
+      if (title.includes(nameLower) || nameLower.includes(title)) return item.url
+      const coreName = nameLower.split(/\s*[—–:\-]\s*/)[0].trim()
+      if (coreName.length > 5 && title.includes(coreName)) return item.url
     }
-
-    // Fallback: try direct href extraction
-    if (urls.length === 0) {
-      const hrefRegex = /class="result__a"\s+href="(https?[^"]+)"/g
-      while ((match = hrefRegex.exec(html)) !== null && urls.length < max) {
-        urls.push(match[1])
-      }
-    }
-
-    return urls
+    return null
   } catch {
     clearTimeout(timer)
-    return []
+    return null
   }
 }
 
-// Allowed source domains — ONLY links from these sites are included
-const ALLOWED_DOMAINS = [
-  'alltrails.com',
-  'nynjtc.org',
-  'nps.gov',
-  'dec.ny.gov',
-  'americanwhitewater.org',
-  'dcnr.pa.gov',
-  'portal.ct.gov',
-  'outdoors.org',       // AMC
-  'waterdata.usgs.gov', // USGS river gauges
-  'youtube.com',        // Trip reports
-  'youtu.be',
-]
-
-function isAllowedDomain(url: string): boolean {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '')
-    return ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
-  } catch {
-    return false
-  }
+function googleSearch(query: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`
 }
 
-// Fetch a URL and check it mentions the trail name VERBATIM
-async function fetchAndCheck(url: string, trail: Trail, timeoutMs = 6000): Promise<boolean> {
-  // GATE 1: Must be from an allowed source site
-  if (!isAllowedDomain(url)) return false
-
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        Accept: 'text/html,application/xhtml+xml,*/*',
-      },
-    })
-    clearTimeout(timer)
-    if (!res.ok) return false
-
-    // Read first ~20KB
-    const reader = res.body?.getReader()
-    if (!reader) return false
-    const decoder = new TextDecoder()
-    let text = ''
-    while (text.length < 20000) {
-      const { done, value } = await reader.read()
-      if (done) break
-      text += decoder.decode(value, { stream: true })
-    }
-    reader.cancel()
-
-    const lower = text.toLowerCase()
-
-    // GATE 2: Must have substantial content (not empty/error/login page)
-    const textOnly = lower.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-    if (textOnly.length < 500) return false
-
-    // GATE 3: Page must say the trail name VERBATIM
-    // Full name match (e.g. "Breakneck Ridge Trail")
-    const fullName = trail.name.toLowerCase()
-    if (lower.includes(fullName)) return true
-
-    // Try the core name without suffixes like "— Section Name" or "Expedition"
-    // e.g. from "Lehigh River Gorge — White Haven to Jim Thorpe Expedition"
-    //   try "Lehigh River Gorge"
-    const dashSplit = trail.name.split(/\s*[—–\-]\s*/)
-    if (dashSplit.length > 1) {
-      const coreName = dashSplit[0].toLowerCase().trim()
-      if (coreName.length > 5 && lower.includes(coreName)) return true
-    }
-
-    return false
-  } catch {
-    clearTimeout(timer)
-    return false
-  }
-}
-
-async function findRealLinks(
+async function buildDopeLinks(
   trail: Trail,
   isKayak: boolean,
   statusFn: (msg: string) => void,
-): Promise<VerifiedLinks> {
-  const result: VerifiedLinks = { trail: [], maps: [], trip_reports: [] }
-  if (isKayak) result.river_data = []
-  const seen = new Set<string>()
-
-  const trailName = trail.name
-  const region = trail.region
+): Promise<ResolvedLinks> {
+  const name = trail.name
   const state = trail.state
+  const stateMap: Record<string, string> = { NY: 'ny', NJ: 'nj', CT: 'ct', PA: 'pa' }
+  const stateCode = stateMap[state] || state.toLowerCase()
 
-  statusFn('Searching the web for real trail links...')
+  statusFn('Building resource links...')
 
-  // ── 1. Build targeted search queries ──
-  type SearchJob = { query: string; cat: keyof VerifiedLinks }
-  const jobs: SearchJob[] = [
-    // Trail pages — search for the specific trail on known good sites
-    { query: `"${trailName}" site:alltrails.com`, cat: 'trail' },
-    { query: `"${trailName}" ${region} ${state} official trail page`, cat: 'trail' },
-    // Maps
-    { query: `"${trailName}" ${state} trail map pdf`, cat: 'maps' },
-    // Trip reports
-    { query: `"${trailName}" trip report`, cat: 'trip_reports' },
-  ]
-
-  if (isKayak) {
-    jobs.push(
-      { query: `"${trailName}" site:americanwhitewater.org`, cat: 'river_data' },
-      { query: `"${trailName}" ${state} river gauge water level`, cat: 'river_data' },
-      { query: `"${trailName}" paddle kayak put-in take-out`, cat: 'trail' },
-    )
+  const result: ResolvedLinks = {
+    trail: [],
+    maps: [],
+    trip_reports: [],
   }
+  if (isKayak) result.river_data = []
 
-  // Add source-specific searches
-  const sourceMap: Record<string, string> = {
-    NPS: `"${trailName}" site:nps.gov`,
-    NYNJTC: `"${trailName}" site:nynjtc.org`,
-    'NYS DEC': `"${trailName}" site:dec.ny.gov`,
-    AW: `"${trailName}" site:americanwhitewater.org`,
-  }
-  if (sourceMap[trail.source]) {
-    jobs.push({ query: sourceMap[trail.source], cat: 'trail' })
-  }
-
-  // ── 2. Run all web searches in parallel ──
-  statusFn('Searching AllTrails, NPS, and other sources...')
-  const searchResults = await Promise.allSettled(
-    jobs.map(async (job) => {
-      const urls = await webSearch(job.query, 3)
-      return { urls, cat: job.cat }
-    })
-  )
-
-  // Collect all candidate URLs from search results
-  type Candidate = { url: string; cat: keyof VerifiedLinks }
-  const candidates: Candidate[] = []
-
-  // Always include the trail's source URL from search data (most reliable)
-  if (trail.source_url && trail.source_url.startsWith('http')) {
-    candidates.push({ url: trail.source_url, cat: 'trail' })
-    seen.add(trail.source_url)
-  }
-
-  for (const r of searchResults) {
-    if (r.status !== 'fulfilled') continue
-    for (const url of r.value.urls) {
-      if (!seen.has(url) && url.startsWith('http')) {
-        seen.add(url)
-        candidates.push({ url, cat: r.value.cat })
-      }
+  // 1. Try NPS API for NPS-sourced trails
+  if (trail.source === 'NPS') {
+    const npsUrl = await searchNps(name, stateCode)
+    if (npsUrl) {
+      result.trail.push({ url: npsUrl, label: `${name} on NPS.gov` })
     }
   }
 
-  // ── 3. Verify each URL actually contains content about THIS trail ──
-  statusFn(`Checking ${candidates.length} links for relevance...`)
-  const checks = await Promise.allSettled(
-    candidates.map(async ({ url, cat }) => {
-      const relevant = await fetchAndCheck(url, trail)
-      return { url, cat, relevant }
+  // 2. Google search links for each category — always work, never broken
+  result.trail.push({
+    url: googleSearch(`"${name}" ${state} trail alltrails OR nps.gov OR dec.ny.gov`),
+    label: `Search for ${name}`,
+  })
+  result.maps.push({
+    url: googleSearch(`"${name}" ${state} trail map`),
+    label: `${name} trail maps`,
+  })
+  result.trip_reports.push({
+    url: googleSearch(`"${name}" ${state} trip report hiking`),
+    label: `${name} trip reports`,
+  })
+
+  if (isKayak && result.river_data) {
+    result.river_data.push({
+      url: googleSearch(`"${name}" ${state} river gauge water level`),
+      label: `${name} water levels`,
     })
-  )
-
-  for (const r of checks) {
-    if (r.status !== 'fulfilled') continue
-    const { url, cat, relevant } = r.value
-    if (relevant && result[cat]) {
-      result[cat]!.push(url)
-    }
+    result.river_data.push({
+      url: googleSearch(`"${name}" americanwhitewater.org`),
+      label: `${name} on American Whitewater`,
+    })
   }
-
-  // ── 4. Dedupe and cap per category ──
-  const cap = (arr: string[], max: number) => [...new Set(arr)].slice(0, max)
-  result.trail = cap(result.trail, 5)
-  result.maps = cap(result.maps, 3)
-  result.trip_reports = cap(result.trip_reports, 4)
-  if (result.river_data) result.river_data = cap(result.river_data, 4)
 
   const total = result.trail.length + result.maps.length +
     result.trip_reports.length + (result.river_data?.length || 0)
-  statusFn(`Found ${total} verified links`)
+  statusFn(`${total} resource links ready`)
 
   return result
 }
@@ -469,10 +325,9 @@ Return JSON matching this exact structure:
           json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
           const sheet = JSON.parse(json)
 
-          // Throw out Claude's hallucinated links entirely.
-          // Search the web for REAL pages about this specific trail,
-          // verify each one contains content about THIS trail.
-          const realLinks = await findRealLinks(trail, isKayak, s)
+          // Replace Claude's hallucinated links with real ones:
+          // NPS trails get verified NPS API links, everything else gets Google search links
+          const realLinks = await buildDopeLinks(trail, isKayak, s)
           sheet.links = realLinks
 
           controller.enqueue(encoder.encode(JSON.stringify({ sheet })))
