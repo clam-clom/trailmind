@@ -202,7 +202,6 @@ export default function SearchQuiz() {
         <OptionGrid
           label="What kind of trip?"
           options={ACTIVITY_OPTIONS}
-          selected={query.activity}
           onSelect={(v) => handleSingleSelect('activity', v)}
         />
       )}
@@ -275,7 +274,6 @@ export default function SearchQuiz() {
         <OptionGrid
           label="How hard?"
           options={DIFFICULTY_OPTIONS}
-          selected={query.difficulty}
           onSelect={(v) => handleSingleSelect('difficulty', v)}
         />
       )}
@@ -285,7 +283,6 @@ export default function SearchQuiz() {
         <OptionGrid
           label="How far from NYC?"
           options={DISTANCE_OPTIONS}
-          selected={query.distance_from_nyc}
           onSelect={(v) => handleSingleSelect('distance_from_nyc', v)}
         />
       )}
@@ -388,12 +385,10 @@ export default function SearchQuiz() {
 function OptionGrid({
   label,
   options,
-  selected,
   onSelect,
 }: {
   label: string
   options: { value: string; label: string; sub: string }[]
-  selected: string
   onSelect: (v: string) => void
 }) {
   return (
@@ -405,31 +400,28 @@ function OptionGrid({
         {label}
       </p>
       <div className="grid grid-cols-2 gap-2">
-        {options.map((opt) => {
-          const isSelected = selected === opt.value
-          return (
-            <button
-              key={opt.value}
-              onClick={() => onSelect(opt.value)}
-              className="p-3 rounded-xl text-left transition-all"
-              style={{
-                background: isSelected ? '#edf1e4' : '#ffffff',
-                border: isSelected ? '1.5px solid #3A5A4C' : '1.5px solid #c0ceac',
-                color: '#0D3323',
-              }}
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => onSelect(opt.value)}
+            className="p-3 rounded-xl text-left transition-all"
+            style={{
+              background: '#ffffff',
+              border: '1.5px solid #c0ceac',
+              color: '#0D3323',
+            }}
+          >
+            <div
+              className="font-medium text-sm"
+              style={{ fontFamily: 'Comfortaa, sans-serif' }}
             >
-              <div
-                className="font-medium text-sm"
-                style={{ fontFamily: 'Comfortaa, sans-serif' }}
-              >
-                {opt.label}
-              </div>
-              <div className="text-xs mt-0.5" style={{ color: '#5a7860' }}>
-                {opt.sub}
-              </div>
-            </button>
-          )
-        })}
+              {opt.label}
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#5a7860' }}>
+              {opt.sub}
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   )
