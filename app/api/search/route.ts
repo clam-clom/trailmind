@@ -1,6 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { anthropic } from '@/lib/anthropic'
-import { SearchQuery } from '@/lib/types'
+import { SearchQuery, Trail } from '@/lib/types'
+
+// ── Real link discovery ──────────────────────────────────────────────
+// Claude hallucinates source_url. After search, we replace each trail's
+// source_url with a real page found via DuckDuckGo web search.
+
+const ALLOWED_DOMAINS = [
+  'alltrails.com', 'nynjtc.org', 'nps.gov', 'dec.ny.gov',
+  'americanwhitewater.org', 'dcnr.pa.gov', 'portal.ct.gov',
+  'outdoors.org', 'waterdata.usgs.gov',
+]
+
+async function webSearch(query: string, max = 5): Promise<string[]> {
+  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 6000)
+  try {
+    const res = await fetch(searchUrl, {
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        Accept: 'text/html',
+      },
+    })
+    clearTimeout(timer)
+    if (!res.ok) return []
+    const html = await res.text()
+    const urls: string[] = []
+    const uddgRegex = /uddg=([^&"]+)/g
+    let match
+    while ((match = uddgRegex.exec(html)) !== null && urls.length < max) {
+      try {
+        const decoded = decodeURIComponent(match[1])
+        if (decoded.startsWith('http') && !decoded.includes('duckduckgo.com')) {
+          urls.push(decoded)
+        }
+      } catch {}
+    }
+    if (urls.length === 0) {
+      const hrefRegex = /class="result__a"\s+href="(https?[^"]+)"/g
+      while ((match = hrefRegex.exec(html)) !== null && urls.length < max) {
+        urls.push(match[1])
+      }
+    }
+    return urls
+  } catch {
+    clearTimeout(timer)
+    return []
+  }
+}
+
+function isAllowedDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '')
+    return ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
+  } catch {
+    return false
+  }
+}
+
+// Find the best real URL for a trail — first allowed-domain result wins
+async function findRealUrl(trail: Trail): Promise<string> {
+  const name = trail.name
+  const state = trail.state
+
+  // Search for the trail on known good sites
+  const queries = [
+    `"${name}" site:alltrails.com`,
+    `"${name}" ${state} trail`,
+  ]
+
+  for (const q of queries) {
+    const urls = await webSearch(q, 3)
+    for (const url of urls) {
+      if (isAllowedDomain(url)) return url
+    }
+  }
+
+  // Fallback: return whatever Claude gave (better than nothing)
+  return trail.source_url
+}
 
 const SYSTEM_PROMPT = `You are TrailMind, an expert outdoor activity guide for the Northeast US (NY, NJ, CT, PA).
 You know trails, paddling routes, and backpacking destinations in this region deeply.
@@ -223,7 +303,21 @@ export async function POST(req: NextRequest) {
           if (jsonText.startsWith('```')) {
             jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
           }
-          const data = { trails: JSON.parse(jsonText), query: queryLabel }
+          const trails: Trail[] = JSON.parse(jsonText)
+
+          // Replace Claude's hallucinated URLs with real ones
+          s('Verifying trail links...')
+          const urlResults = await Promise.allSettled(
+            trails.map((t) => findRealUrl(t))
+          )
+          for (let i = 0; i < trails.length; i++) {
+            const r = urlResults[i]
+            if (r.status === 'fulfilled') {
+              trails[i].source_url = r.value
+            }
+          }
+
+          const data = { trails, query: queryLabel }
           controller.enqueue(encoder.encode(JSON.stringify(data)))
         } catch (err) {
           console.error('Search error:', err)
