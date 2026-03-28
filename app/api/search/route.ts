@@ -41,6 +41,17 @@ DAY LIMITS — never exceed these:
 - Paddling: max 6 hours of active paddling per day
 - The "estimated_hours" field must reflect ACTUAL active time, not drive time
 
+DURATION-BASED MILEAGE — the trail MUST be long enough to fill the requested days:
+- Easy hiking: minimum 3 miles/day × number of days (e.g. 12-day easy = at least 36 miles)
+- Moderate hiking: minimum 5 miles/day × number of days
+- Hard/strenuous hiking: minimum 7 miles/day × number of days
+- Easy paddling: minimum 8 miles/day × number of days
+- Moderate paddling: minimum 12 miles/day × number of days
+- Hard paddling: minimum 15 miles/day × number of days
+- estimated_hours must equal at least (number of days × 3) for easy, (days × 5) for moderate, (days × 6) for hard
+- If the user requests a multi-day trip (2+ days), ONLY return trails/routes long enough to actually fill that many days. A 4-mile trail CANNOT be a 12-day hike. Think about this carefully before including any result.
+- Multi-day hiking trips (2+ days) should be thru-hikes, long loops, or point-to-point routes — NOT short day-hike loops.
+
 Return ONLY valid JSON, no other text. Format:
 [
   {
@@ -97,12 +108,23 @@ function buildUserPrompt(q: SearchQuery): string {
     any: 'any distance from NYC',
   }[q.distance_from_nyc]
 
+  // Calculate minimum mileage so Claude can't return short trails for long trips
+  let mileageNote = ''
+  if (days > 1) {
+    const milesPerDay = q.activity === 'kayak'
+      ? { easy: 8, moderate: 12, hard: 15, strenuous: 15, surprise: 8 }[q.difficulty]
+      : { easy: 3, moderate: 5, hard: 7, strenuous: 7, surprise: 3 }[q.difficulty]
+    const minMiles = milesPerDay * days
+    mileageNote = `\nMINIMUM total distance: ${minMiles} miles (${milesPerDay} mi/day × ${days} days). Do NOT return any trail shorter than this.`
+  }
+
   const parts = [
     `Find me 8 ${activity} options.`,
     `Duration: ${duration}.`,
     `Difficulty: ${difficulty}.`,
     `Distance: ${distance}.`,
-  ]
+    mileageNote,
+  ].filter(Boolean)
 
   if (q.features.length > 0) {
     parts.push(`I want: ${q.features.join(', ')}.`)
