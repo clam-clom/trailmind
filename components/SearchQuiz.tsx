@@ -51,8 +51,11 @@ function buildQueryLabel(q: SearchQuery): string {
   const parts: string[] = []
   const act = { hike: 'Hike', backpack: 'Backpacking', kayak: 'Kayak' }[q.activity]
   parts.push(act)
-  const dur = q.duration_days === 1 ? 'day trip' : `${q.duration_days} days`
-  parts.push(dur)
+  if (q.duration_hours && q.duration_days === 1) {
+    parts.push(`${q.duration_hours}h`)
+  } else {
+    parts.push(q.duration_days === 1 ? 'day trip' : `${q.duration_days} days`)
+  }
   const diff = { easy: 'easy', moderate: 'moderate', hard: 'hard', strenuous: 'strenuous', surprise: 'any difficulty' }[q.difficulty]
   parts.push(diff)
   if (q.features.length > 0) parts.push(q.features.slice(0, 3).join(', '))
@@ -113,6 +116,16 @@ export default function SearchQuiz() {
 
   const handleSingleSelect = (field: keyof SearchQuery, value: string) => {
     setQuery((prev) => ({ ...prev, [field]: value } as SearchQuery))
+    // Reset duration input when switching activity type
+    if (field === 'activity') {
+      setDurationInput(value === 'hike' ? '4' : '2')
+      setDurationError('')
+      if (value === 'hike') {
+        setQuery((prev) => ({ ...prev, activity: value as SearchQuery['activity'], duration_days: 1, duration_hours: 4 }))
+      } else {
+        setQuery((prev) => ({ ...prev, activity: value as SearchQuery['activity'], duration_days: 2, duration_hours: undefined }))
+      }
+    }
     if (step < STEPS.length - 1) setStep(step + 1)
   }
 
@@ -206,8 +219,70 @@ export default function SearchQuiz() {
         />
       )}
 
-      {/* Step 2: Duration (number input) */}
-      {step === 1 && (
+      {/* Step 2: Duration — hours for day hikes, days for backpacking/kayaking */}
+      {step === 1 && query.activity === 'hike' && (
+        <div>
+          <p
+            className="text-base font-medium mb-4"
+            style={{ color: '#0D3323', fontFamily: 'Comfortaa, sans-serif' }}
+          >
+            How many hours?
+          </p>
+          <div className="flex items-center gap-4 mb-3">
+            <input
+              type="number"
+              min={1}
+              max={16}
+              value={durationInput}
+              onChange={(e) => {
+                const raw = e.target.value
+                setDurationInput(raw)
+                const num = parseInt(raw, 10)
+                if (isNaN(num) || num < 1 || num > 16) {
+                  setDurationError('Enter a number between 1 and 16')
+                } else {
+                  setDurationError('')
+                  setQuery((prev) => ({ ...prev, duration_days: 1, duration_hours: num }))
+                }
+              }}
+              className="w-24 px-4 py-3 rounded-xl text-center text-lg outline-none"
+              style={{
+                background: '#edf1e4',
+                border: '1px solid #c0ceac',
+                color: '#0D3323',
+                fontFamily: 'Comfortaa, sans-serif',
+                fontWeight: 700,
+              }}
+            />
+            <span style={{ color: '#4a6858', fontFamily: 'Comfortaa, sans-serif', fontSize: '14px' }}>
+              {(query.duration_hours ?? 1) === 1 ? 'hour' : 'hours'}
+            </span>
+          </div>
+          {durationError && (
+            <p className="text-xs mb-3" style={{ color: '#FCA944' }}>{durationError}</p>
+          )}
+          <p className="text-xs mb-4" style={{ color: '#5a7860' }}>
+            1–16 hours · out and back same day
+          </p>
+          <button
+            onClick={() => {
+              const num = parseInt(durationInput, 10)
+              if (!isNaN(num) && num >= 1 && num <= 16) {
+                setQuery((prev) => ({ ...prev, duration_days: 1, duration_hours: num }))
+                setStep(step + 1)
+              } else {
+                setDurationError('Enter a number between 1 and 16')
+              }
+            }}
+            className="pill-btn btn-green px-6 py-2.5 text-sm"
+            disabled={!!durationError || !durationInput}
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
+      {step === 1 && query.activity !== 'hike' && (
         <div>
           <p
             className="text-base font-medium mb-4"
@@ -229,7 +304,7 @@ export default function SearchQuiz() {
                   setDurationError('Enter a number between 1 and 30')
                 } else {
                   setDurationError('')
-                  setQuery((prev) => ({ ...prev, duration_days: num }))
+                  setQuery((prev) => ({ ...prev, duration_days: num, duration_hours: undefined }))
                 }
               }}
               className="w-24 px-4 py-3 rounded-xl text-center text-lg outline-none"
@@ -255,7 +330,7 @@ export default function SearchQuiz() {
             onClick={() => {
               const num = parseInt(durationInput, 10)
               if (!isNaN(num) && num >= 1 && num <= 30) {
-                setQuery((prev) => ({ ...prev, duration_days: num }))
+                setQuery((prev) => ({ ...prev, duration_days: num, duration_hours: undefined }))
                 setStep(step + 1)
               } else {
                 setDurationError('Enter a number between 1 and 30')

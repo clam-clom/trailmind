@@ -26,7 +26,8 @@ export interface SearchResponse {
 
 export interface SearchQuery {
   activity: 'hike' | 'backpack' | 'kayak'
-  duration_days: number // 1-30, user types exact number
+  duration_days: number // 1-30
+  duration_hours?: number // 1-16, used for day hikes instead of days
   difficulty: 'easy' | 'moderate' | 'hard' | 'strenuous' | 'surprise'
   distance_from_nyc: 'under_1hr' | '1-2hrs' | '2-3hrs' | '3plus' | 'any'
   features: string[]

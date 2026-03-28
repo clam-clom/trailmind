@@ -103,9 +103,12 @@ function buildUserPrompt(q: SearchQuery): string {
   const activity = { hike: 'day hike', backpack: 'backpacking trip', kayak: 'kayaking trip' }[q.activity]
 
   const days = q.duration_days
-  const duration = days === 1
-    ? 'day trip (back same day)'
-    : `${days}-day / ${days - 1}-night trip`
+  const hours = q.duration_hours
+  const duration = hours && days === 1
+    ? `day hike, about ${hours} hour${hours === 1 ? '' : 's'} of active hiking (back same day)`
+    : days === 1
+      ? 'day trip (back same day)'
+      : `${days}-day / ${days - 1}-night trip`
 
   const difficulty = q.difficulty === 'surprise'
     ? 'any difficulty level'
@@ -121,14 +124,18 @@ function buildUserPrompt(q: SearchQuery): string {
 
   // Calculate minimum hours and miles so Claude can't return short trails for long trips
   let mileageNote = ''
-  if (days > 1) {
-    // Hours per 5 days (low end of range), scaled to requested days
+  if (hours && days === 1) {
+    // Day hike — use hours directly to set expected trail length
+    const pace = q.activity === 'kayak' ? 2.5 : 1.5
+    const expectedMiles = Math.round(hours * pace)
+    mileageNote = `\nThis is a ${hours}-hour day trip. Trails should take roughly ${hours} hours of active time (~${expectedMiles} miles at ${pace} mph). Do NOT return trails significantly shorter or longer than this.`
+  } else if (days > 1) {
+    // Multi-day — use hour ranges scaled from 5-day benchmarks
     const isKayak = q.activity === 'kayak'
     const hoursPerFiveDays = isKayak
       ? { easy: 5, moderate: 15, hard: 30, strenuous: 30, surprise: 5 }[q.difficulty]
       : { easy: 10, moderate: 20, hard: 25, strenuous: 25, surprise: 10 }[q.difficulty]
     const minHours = Math.round(hoursPerFiveDays * (days / 5))
-    // Pace: hiker 1.5 mph, paddler 2 mph flat / 3 mph river (use 2.5 avg)
     const pace = isKayak ? 2.5 : 1.5
     const minMiles = Math.round(minHours * pace)
     mileageNote = `\nThis is a ${days}-day trip. MINIMUM active hours: ~${minHours}h. MINIMUM total distance: ~${minMiles} miles (at ${pace} mph avg pace). Do NOT return any trail shorter than this. Use trail length and topography to verify.`
@@ -165,7 +172,9 @@ export async function POST(req: NextRequest) {
       // New structured search
       const sq: SearchQuery = body.structured
       userPrompt = buildUserPrompt(sq)
-      queryLabel = `${sq.activity} · ${sq.duration_days === 1 ? 'day trip' : sq.duration_days + ' days'} · ${sq.difficulty}`
+      queryLabel = sq.duration_hours && sq.duration_days === 1
+        ? `${sq.activity} · ${sq.duration_hours}h · ${sq.difficulty}`
+        : `${sq.activity} · ${sq.duration_days === 1 ? 'day trip' : sq.duration_days + ' days'} · ${sq.difficulty}`
     } else if (body.query && typeof body.query === 'string') {
       // Legacy free-text (critique re-search from ActionBar still uses this)
       userPrompt = body.query
