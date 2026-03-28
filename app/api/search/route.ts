@@ -60,8 +60,65 @@ function isAllowedDomain(url: string): boolean {
   }
 }
 
-// Find the best real URL for a trail — first allowed-domain result wins
-async function findRealUrl(trail: Trail): Promise<string> {
+// Fetch a URL and verify it actually exists and mentions this trail
+async function verifyUrl(url: string, trailName: string): Promise<boolean> {
+  if (!isAllowedDomain(url)) return false
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 5000)
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        Accept: 'text/html,application/xhtml+xml,*/*',
+      },
+    })
+    clearTimeout(timer)
+    if (!res.ok) return false
+
+    // Read first ~15KB
+    const reader = res.body?.getReader()
+    if (!reader) return false
+    const decoder = new TextDecoder()
+    let text = ''
+    while (text.length < 15000) {
+      const { done, value } = await reader.read()
+      if (done) break
+      text += decoder.decode(value, { stream: true })
+    }
+    reader.cancel()
+
+    const lower = text.toLowerCase()
+
+    // Must have real content (not error/login/empty page)
+    const textOnly = lower.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+    if (textOnly.length < 300) return false
+
+    // Must mention the trail name (full or core part before dash/em-dash)
+    const fullName = trailName.toLowerCase()
+    if (lower.includes(fullName)) return true
+
+    // Try core name (before "—", "–", "-")
+    const dashSplit = trailName.split(/\s*[—–\-]\s*/)
+    if (dashSplit.length > 1) {
+      const core = dashSplit[0].toLowerCase().trim()
+      if (core.length > 5 && lower.includes(core)) return true
+    }
+
+    // Try without common suffixes like "Trail", "Loop", "Path"
+    const stripped = fullName.replace(/\s+(trail|loop|path|route|circuit|out\s*&?\s*back)$/i, '').trim()
+    if (stripped.length > 5 && stripped !== fullName && lower.includes(stripped)) return true
+
+    return false
+  } catch {
+    clearTimeout(timer)
+    return false
+  }
+}
+
+// Find the best real URL for a trail — search, verify page exists and mentions trail
+async function findRealUrl(trail: Trail): Promise<string | null> {
   const name = trail.name
   const state = trail.state
 
@@ -72,14 +129,21 @@ async function findRealUrl(trail: Trail): Promise<string> {
   ]
 
   for (const q of queries) {
-    const urls = await webSearch(q, 3)
-    for (const url of urls) {
-      if (isAllowedDomain(url)) return url
+    const urls = await webSearch(q, 4)
+    // Check all candidate URLs in parallel
+    const checks = await Promise.allSettled(
+      urls.filter(isAllowedDomain).map(async (url) => {
+        const ok = await verifyUrl(url, name)
+        return { url, ok }
+      })
+    )
+    for (const r of checks) {
+      if (r.status === 'fulfilled' && r.value.ok) return r.value.url
     }
   }
 
-  // Fallback: return whatever Claude gave (better than nothing)
-  return trail.source_url
+  // No verified URL found
+  return null
 }
 
 const SYSTEM_PROMPT = `You are TrailMind, an expert outdoor activity guide for the Northeast US (NY, NJ, CT, PA).
@@ -305,15 +369,18 @@ export async function POST(req: NextRequest) {
           }
           const trails: Trail[] = JSON.parse(jsonText)
 
-          // Replace Claude's hallucinated URLs with real ones
+          // Replace Claude's hallucinated URLs with verified real ones
           s('Verifying trail links...')
           const urlResults = await Promise.allSettled(
             trails.map((t) => findRealUrl(t))
           )
           for (let i = 0; i < trails.length; i++) {
             const r = urlResults[i]
-            if (r.status === 'fulfilled') {
+            if (r.status === 'fulfilled' && r.value) {
               trails[i].source_url = r.value
+            } else {
+              // No verified URL — clear it so we don't show a broken link
+              trails[i].source_url = ''
             }
           }
 

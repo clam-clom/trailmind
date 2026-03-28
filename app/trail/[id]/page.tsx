@@ -300,18 +300,20 @@ export default function TrailDetailPage() {
           </div>
         )}
 
-        {/* Source */}
-        <div className="mb-6">
-          <a
-            href={trail.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm underline"
-            style={{ color: '#0D3323' }}
-          >
-            View on {trail.source} →
-          </a>
-        </div>
+        {/* Source — only show if we have a verified URL */}
+        {trail.source_url && (
+          <div className="mb-6">
+            <a
+              href={trail.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm underline"
+              style={{ color: '#0D3323' }}
+            >
+              View on {trail.source} →
+            </a>
+          </div>
+        )}
 
         {/* DOPE Sheet loading state */}
         {dopeLoading && (
