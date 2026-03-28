@@ -369,22 +369,23 @@ export async function POST(req: NextRequest) {
           }
           const trails: Trail[] = JSON.parse(jsonText)
 
-          // Replace Claude's hallucinated URLs with verified real ones
-          s('Verifying trail links...')
+          // Verify every trail exists online — drop any that can't be verified
+          s('Verifying trails are real...')
           const urlResults = await Promise.allSettled(
             trails.map((t) => findRealUrl(t))
           )
+          const verified: Trail[] = []
           for (let i = 0; i < trails.length; i++) {
             const r = urlResults[i]
             if (r.status === 'fulfilled' && r.value) {
               trails[i].source_url = r.value
-            } else {
-              // No verified URL — clear it so we don't show a broken link
-              trails[i].source_url = ''
+              verified.push(trails[i])
             }
+            // If no verified URL → trail is likely hallucinated, drop it entirely
           }
 
-          const data = { trails, query: queryLabel }
+          s(`${verified.length} verified trails`)
+          const data = { trails: verified, query: queryLabel }
           controller.enqueue(encoder.encode(JSON.stringify(data)))
         } catch (err) {
           console.error('Search error:', err)
