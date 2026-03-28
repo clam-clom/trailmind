@@ -62,8 +62,35 @@ async function webSearch(query: string, max = 5): Promise<string[]> {
   }
 }
 
-// Fetch a URL and read the first chunk to check it's real + relevant
+// Allowed source domains — ONLY links from these sites are included
+const ALLOWED_DOMAINS = [
+  'alltrails.com',
+  'nynjtc.org',
+  'nps.gov',
+  'dec.ny.gov',
+  'americanwhitewater.org',
+  'dcnr.pa.gov',
+  'portal.ct.gov',
+  'outdoors.org',       // AMC
+  'waterdata.usgs.gov', // USGS river gauges
+  'youtube.com',        // Trip reports
+  'youtu.be',
+]
+
+function isAllowedDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '')
+    return ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
+  } catch {
+    return false
+  }
+}
+
+// Fetch a URL and check it mentions the trail name VERBATIM
 async function fetchAndCheck(url: string, trail: Trail, timeoutMs = 6000): Promise<boolean> {
+  // GATE 1: Must be from an allowed source site
+  if (!isAllowedDomain(url)) return false
+
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -78,12 +105,12 @@ async function fetchAndCheck(url: string, trail: Trail, timeoutMs = 6000): Promi
     clearTimeout(timer)
     if (!res.ok) return false
 
-    // Read first ~15KB
+    // Read first ~20KB
     const reader = res.body?.getReader()
     if (!reader) return false
     const decoder = new TextDecoder()
     let text = ''
-    while (text.length < 15000) {
+    while (text.length < 20000) {
       const { done, value } = await reader.read()
       if (done) break
       text += decoder.decode(value, { stream: true })
@@ -92,22 +119,22 @@ async function fetchAndCheck(url: string, trail: Trail, timeoutMs = 6000): Promi
 
     const lower = text.toLowerCase()
 
-    // Must have substantial content (not empty/error page)
+    // GATE 2: Must have substantial content (not empty/error/login page)
     const textOnly = lower.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-    if (textOnly.length < 300) return false
+    if (textOnly.length < 500) return false
 
-    // Check the page title or body for the trail name
-    // Use the full trail name as a phrase match first (strongest signal)
+    // GATE 3: Page must say the trail name VERBATIM
+    // Full name match (e.g. "Breakneck Ridge Trail")
     const fullName = trail.name.toLowerCase()
     if (lower.includes(fullName)) return true
 
-    // Try significant sub-phrases (e.g. "Lehigh River Gorge" from
-    // "Lehigh River Gorge — White Haven to Jim Thorpe Expedition")
-    const nameParts = trail.name.split(/[\s—–\-:]+/).filter(w => w.length > 2)
-    // Build 3-word sliding windows from the trail name
-    for (let i = 0; i <= nameParts.length - 3; i++) {
-      const phrase = nameParts.slice(i, i + 3).join(' ').toLowerCase()
-      if (lower.includes(phrase)) return true
+    // Try the core name without suffixes like "— Section Name" or "Expedition"
+    // e.g. from "Lehigh River Gorge — White Haven to Jim Thorpe Expedition"
+    //   try "Lehigh River Gorge"
+    const dashSplit = trail.name.split(/\s*[—–\-]\s*/)
+    if (dashSplit.length > 1) {
+      const coreName = dashSplit[0].toLowerCase().trim()
+      if (coreName.length > 5 && lower.includes(coreName)) return true
     }
 
     return false
@@ -235,20 +262,14 @@ export async function POST(req: NextRequest) {
       : quiz.group_size === '3-4' ? 3
       : 5
 
-    const isOvernight = quiz.duration !== 'day'
+    const durationDays = quiz.duration_days
+    const isOvernight = durationDays > 1
     const isKayak = quiz.trip_type === 'kayak_day' || quiz.trip_type === 'kayak_expedition'
-
-    // Estimate trip duration in days
-    const durationDays =
-      quiz.duration === 'day' ? 1
-      : quiz.duration === '1_night' ? 2
-      : quiz.duration === '2-3_nights' ? 3
-      : Math.max(5, Math.ceil(trail.estimated_hours / 8))
 
     // For very long trips (>14 days), cap the daily breakdown to keep
     // the output useful. Nobody plans day 47 from a single AI prompt.
-    const isLongTrip = durationDays > 14
-    const DAILY_CAP = 14
+    const isLongTrip = durationDays > 20
+    const DAILY_CAP = 20
 
     const systemPrompt = `You are TrailMind's DOPE Sheet generator. You create NOLS-style trip planning documents for Northeast US outdoor trips. You follow a strict format derived from field-tested expedition planning.
 
@@ -262,6 +283,8 @@ HARD RULES — never break these:
 PACE & TIME FORMULAS:
 - Hiking base pace: 2.0 mph flat/moderate, 1.5 mph strenuous
 - Add 1 hour per 500 ft elevation gain to hiking time
+- HARD CAP: Never exceed 7–8 hours of active hiking per day. If a day would exceed this, split it across multiple days.
+- HARD CAP: Never exceed 6 hours of active paddling per day. If a section would exceed this, split it.
 - Water breaks: 5 min every 30 min of hiking
 - Snack breaks: 10–15 min every 1 hour of hiking
 - Allotted time = expected time + 30 min buffer
@@ -292,7 +315,7 @@ ${JSON.stringify(trail, null, 2)}
 Quiz answers:
 - Trip type: ${quiz.trip_type}
 - Group size: ${quiz.group_size} (${groupNum} ${groupNum === 1 ? 'person' : 'people'})
-- Duration: ${quiz.duration}
+- Duration: ${quiz.duration_days} ${quiz.duration_days === 1 ? 'day' : 'days'}
 - Season: ${quiz.season}
 - Experience level: ${quiz.experience}
 
@@ -374,10 +397,10 @@ Return JSON matching this exact structure:
     }
   ],` : ''}
   "links": {
-    "trail": ["${trail.source_url}"],
-    "maps": [list of real map URLs for this trail],
-    "trip_reports": [list of real trip report URLs],
-    ${isKayak ? `"river_data": [list of real USGS/AW river data URLs]` : ''}
+    "trail": [],
+    "maps": [],
+    "trip_reports": []${isKayak ? `,
+    "river_data": []` : ''}
   },
   "safety_callouts": [list of safety notes for ${quiz.experience} experience level in ${quiz.season}]
 }`

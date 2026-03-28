@@ -26,7 +26,7 @@ export interface SearchResponse {
 
 export interface SearchQuery {
   activity: 'hike' | 'backpack' | 'kayak'
-  duration: 'day' | '1_night' | '2-3_nights' | '4-7_nights' | '7-14_nights'
+  duration_days: number // 1-30, user types exact number
   difficulty: 'easy' | 'moderate' | 'hard' | 'strenuous' | 'surprise'
   distance_from_nyc: 'under_1hr' | '1-2hrs' | '2-3hrs' | '3plus' | 'any'
   features: string[]
@@ -53,7 +53,7 @@ export interface Interaction {
 export interface DopeSheetQuizAnswers {
   trip_type: 'hike' | 'backpack' | 'kayak_day' | 'kayak_expedition'
   group_size: 'solo' | '2' | '3-4' | '5+'
-  duration: 'day' | '1_night' | '2-3_nights' | '4+_nights'
+  duration_days: number // 1-30
   season: 'spring' | 'summer' | 'fall' | 'winter'
   experience: 'first_timer' | 'some_experience' | 'comfortable' | 'very_experienced'
 }

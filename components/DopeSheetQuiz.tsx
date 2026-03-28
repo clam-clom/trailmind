@@ -17,20 +17,18 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
     : trail.activity === 'backpack' ? 'backpack'
     : 'hike'
 
-  const defaultDuration: DopeSheetQuizAnswers['duration'] =
-    trail.estimated_hours <= 8 ? 'day'
-    : trail.estimated_hours <= 20 ? '1_night'
-    : trail.estimated_hours <= 56 ? '2-3_nights'
-    : '4+_nights'
+  const defaultDays = Math.max(1, Math.min(30, Math.ceil(trail.estimated_hours / 8)))
 
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<DopeSheetQuizAnswers>({
     trip_type: defaultType,
     group_size: 'solo',
-    duration: defaultDuration,
+    duration_days: defaultDays,
     season: 'summer',
     experience: 'some_experience',
   })
+  const [durationInput, setDurationInput] = useState(String(defaultDays))
+  const [durationError, setDurationError] = useState('')
 
   const handleSelect = (field: keyof DopeSheetQuizAnswers, value: string) => {
     const updated = { ...answers, [field]: value } as DopeSheetQuizAnswers
@@ -116,17 +114,52 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
         )}
 
         {step === 2 && (
-          <QuizQuestion
-            label="How long?"
-            options={[
-              { value: 'day', label: 'Day trip', sub: 'Back home same day' },
-              { value: '1_night', label: '1 night', sub: '2 days out' },
-              { value: '2-3_nights', label: '2–3 nights', sub: '3–4 days out' },
-              { value: '4+_nights', label: '4+ nights', sub: 'Extended trip' },
-            ]}
-            selected={answers.duration}
-            onSelect={(v) => handleSelect('duration', v)}
-          />
+          <div>
+            <p className="text-base font-medium mb-4" style={{ color: '#0D3323', fontFamily: 'Comfortaa, sans-serif' }}>
+              How many days?
+            </p>
+            <div className="flex items-center gap-4 mb-3">
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={durationInput}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setDurationInput(raw)
+                  const num = parseInt(raw, 10)
+                  if (isNaN(num) || num < 1 || num > 30) {
+                    setDurationError('Enter a number between 1 and 30')
+                  } else {
+                    setDurationError('')
+                    setAnswers((prev) => ({ ...prev, duration_days: num }))
+                  }
+                }}
+                className="w-24 px-4 py-3 rounded-xl text-center text-lg outline-none"
+                style={{ background: '#edf1e4', border: '1px solid #c0ceac', color: '#0D3323', fontFamily: 'Comfortaa, sans-serif', fontWeight: 700 }}
+              />
+              <span style={{ color: '#4a6858', fontFamily: 'Comfortaa, sans-serif', fontSize: '14px' }}>
+                {answers.duration_days === 1 ? 'day' : 'days'}
+              </span>
+            </div>
+            {durationError && <p className="text-xs mb-2" style={{ color: '#FCA944' }}>{durationError}</p>}
+            <p className="text-xs mb-4" style={{ color: '#5a7860' }}>
+              {answers.duration_days > 20 ? 'Over 20 days: DOPE sheet will show summary instead of daily breakdown' : '1 = day trip · 30 max'}
+            </p>
+            <button
+              onClick={() => {
+                const num = parseInt(durationInput, 10)
+                if (!isNaN(num) && num >= 1 && num <= 30) {
+                  setAnswers((prev) => ({ ...prev, duration_days: num }))
+                  setStep(step + 1)
+                }
+              }}
+              className="pill-btn btn-green px-6 py-2.5 text-sm"
+              disabled={!!durationError || !durationInput}
+            >
+              Next →
+            </button>
+          </div>
         )}
 
         {step === 3 && (

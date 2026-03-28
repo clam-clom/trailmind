@@ -7,6 +7,40 @@ You know trails, paddling routes, and backpacking destinations in this region de
 
 You will receive a STRUCTURED search query with specific parameters. Use these parameters to find matching trails. Return a JSON array of 8 trail/activity suggestions. Each suggestion must be a REAL place that exists in the Northeast US.
 
+DIFFICULTY RANKING — use these exact criteria:
+
+EASY:
+- Max 4 hours of active hiking per day
+- Less than 1,000 ft elevation gain per day
+- No rock scrambles
+- Lots of places to get water
+- Designated campsites available (if overnight)
+- No rapids above Class I, no portages
+- Under 4 hours of active paddling per day
+
+MODERATE:
+- Up to 6 hours of active hiking per day
+- 500–1,000 ft elevation gain per day
+- Easy rock scrambles only
+- Lots of water sources, or slightly limited but manageable
+- Designated campsites + backcountry campsites available
+- Rapids max Class II½, OR over 4 hours of active paddling per day
+
+HARD / STRENUOUS:
+- Up to 7 hours of active hiking per day
+- 1,000–2,500 ft elevation gain per day
+- Rock scrambles present
+- Limited or no water sources
+- Very few campsites
+- Rapids Class II½ and above
+- Portages required
+- 6+ hours of active paddling per day
+
+DAY LIMITS — never exceed these:
+- Hiking: max 7–8 hours of active hiking per day
+- Paddling: max 6 hours of active paddling per day
+- The "estimated_hours" field must reflect ACTUAL active time, not drive time
+
 Return ONLY valid JSON, no other text. Format:
 [
   {
@@ -29,13 +63,15 @@ Return ONLY valid JSON, no other text. Format:
   }
 ]
 
-Draw from these data sources when suggesting trails:
-- NY-NJ Trail Conference (NYNJTC) — best source for NY/NJ trails
-- NPS — national parks (Delaware Water Gap, Appalachian Trail, Gateway)
-- NYS DEC — Catskills, Adirondacks state lands
-- American Whitewater — kayaking/paddling routes
-- PA DCNR — Pennsylvania state forests and parks
-- CT DEEP — Connecticut state parks
+Data sources (ONLY suggest trails from these):
+- AllTrails (alltrails.com) — largest trail database
+- NY-NJ Trail Conference / NYNJTC (nynjtc.org) — NY/NJ trails
+- NPS (nps.gov) — national parks, Appalachian Trail, Delaware Water Gap
+- NYS DEC (dec.ny.gov) — Catskills, Adirondacks, state lands
+- American Whitewater / AW (americanwhitewater.org) — kayaking/paddling routes
+- PA DCNR (dcnr.pa.gov) — Pennsylvania state forests and parks
+- CT DEEP (portal.ct.gov/DEEP) — Connecticut state parks
+- AMC / Appalachian Mountain Club (outdoors.org) — Northeast trails
 
 Prioritize lesser-known trails over the obvious ones. Do not always recommend Breakneck Ridge.
 Rank results by how well they match ALL of the specified parameters — best match first.`
@@ -44,13 +80,10 @@ Rank results by how well they match ALL of the specified parameters — best mat
 function buildUserPrompt(q: SearchQuery): string {
   const activity = { hike: 'day hike', backpack: 'backpacking trip', kayak: 'kayaking trip' }[q.activity]
 
-  const duration = {
-    day: 'day trip (back same day)',
-    '1_night': '1 night / 2 day trip',
-    '2-3_nights': '2-3 night trip',
-    '4-7_nights': '4-7 night trip',
-    '7-14_nights': '7-14 night extended expedition',
-  }[q.duration]
+  const days = q.duration_days
+  const duration = days === 1
+    ? 'day trip (back same day)'
+    : `${days}-day / ${days - 1}-night trip`
 
   const difficulty = q.difficulty === 'surprise'
     ? 'any difficulty level'
@@ -76,7 +109,6 @@ function buildUserPrompt(q: SearchQuery): string {
   }
 
   if (q.notes.trim()) {
-    // Cap at 200 chars and sanitize (already enforced client-side)
     const notes = q.notes.trim().slice(0, 200)
     parts.push(`Additional notes: ${notes}`)
   }
@@ -95,7 +127,7 @@ export async function POST(req: NextRequest) {
       // New structured search
       const sq: SearchQuery = body.structured
       userPrompt = buildUserPrompt(sq)
-      queryLabel = `${sq.activity} · ${sq.duration} · ${sq.difficulty}`
+      queryLabel = `${sq.activity} · ${sq.duration_days === 1 ? 'day trip' : sq.duration_days + ' days'} · ${sq.difficulty}`
     } else if (body.query && typeof body.query === 'string') {
       // Legacy free-text (critique re-search from ActionBar still uses this)
       userPrompt = body.query
