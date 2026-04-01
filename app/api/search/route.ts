@@ -104,9 +104,22 @@ IMPORTANT — URLs:
 - Set source_url to an EMPTY STRING for every trail. Do NOT generate URLs. Links are handled separately.
 - Still set "source" to the correct data source name (e.g. "NPS", "AllTrails", "NYS DEC").
 
-PACE CALCULATIONS:
-- Average hiker: 1.5 mph + add 1 hour for every 1,000 ft of elevation gained or lost
-- Average paddler: 2 mph in flat water / lakes / ponds, 3 mph in rivers / running water
+PACE CALCULATIONS (AMC Book Time formula):
+- Hiking base pace: 2 mph on flat/moderate terrain
+- Add 30 minutes for every 1,000 ft of elevation gain
+- Add 30 minutes for every 1,000 ft of elevation loss (descents slow you down too)
+- Backpacking penalty: reduce pace by ~0.5 mph for heavy packs (40+ lbs)
+- Flatwater paddling: 2 mph (lakes, ponds, calm rivers)
+- River/moving water paddling: 3 mph with current
+- Whitewater paddling by class: 2.5 mph Class I, 2.0 mph Class II, 1.5 mph Class III+ (includes scouting/portaging time)
+
+SEASON AWARENESS:
+- The user will specify a season. Factor this into recommendations:
+- WINTER: Only recommend trails that are safe/accessible in winter. Note if snowshoes/crampons needed. Shorter daylight = fewer hiking hours available.
+- SPRING: Flag trails with spring flood risk, mud season, or snow at elevation. Rivers may be running dangerously high.
+- SUMMER: Note heat exposure on ridges, water source reliability in late summer.
+- FALL: Generally best conditions. Note hunting seasons in some areas.
+- WHITEWATER: Spring runoff makes rivers higher class. A Class II in summer may be Class III+ in spring. Always note this.
 
 DIFFICULTY RANKING — use these exact criteria:
 
@@ -116,7 +129,7 @@ EASY:
 - No rock scrambles
 - Lots of places to get water
 - Designated campsites (if overnight)
-- No rapids above Class I, no portages
+- Flatwater only or Class I max, no portages
 - Under 4 hours of active paddling per day
 
 MODERATE:
@@ -160,6 +173,13 @@ CRITICAL — TRAIL LENGTH MUST MATCH DURATION:
 - Multi-day hiking trips (2+ days) must be thru-hikes, long loops, or point-to-point routes — NOT short day-hike loops.
 - Use the length of trail and its topography to determine actual time. Do not guess.
 
+WHITEWATER vs FLATWATER:
+- If activity is "kayak_flatwater": only return calm water routes (lakes, ponds, slow rivers). No rapids above Class I.
+- If activity is "kayak_whitewater": return river runs with rapids. Include rapid class in description. Note if spring levels change the rating.
+
+"SURPRISE" DIFFICULTY:
+- When difficulty is "surprise", use EASY to MODERATE only. Never return hard or strenuous trails for surprise. This is a safety floor — the user hasn't indicated they can handle difficult terrain.
+
 Return ONLY valid JSON, no other text. Format:
 [
   {
@@ -167,7 +187,7 @@ Return ONLY valid JSON, no other text. Format:
     "name": "Trail or route name",
     "region": "Park or area name",
     "state": "NY",
-    "activity": "hike" | "backpack" | "kayak",
+    "activity": "hike" | "backpack" | "kayak" | "kayak_flatwater" | "kayak_whitewater",
     "difficulty": "easy" | "moderate" | "hard" | "strenuous",
     "distance_miles": number,
     "elevation_gain_ft": number | null,
@@ -197,18 +217,24 @@ Rank results by how well they match ALL of the specified parameters — best mat
 
 // Build a controlled natural-language prompt from the structured query
 function buildUserPrompt(q: SearchQuery): string {
-  const activity = { hike: 'day hike', backpack: 'backpacking trip', kayak: 'kayaking trip' }[q.activity]
+  const activityLabels: Record<string, string> = {
+    hike: 'day hike',
+    backpack: 'backpacking trip',
+    kayak_flatwater: 'flatwater kayaking trip (lakes, ponds, calm rivers only)',
+    kayak_whitewater: 'whitewater kayaking trip (rapids, moving water)',
+  }
+  const activity = activityLabels[q.activity] || q.activity
 
   const days = q.duration_days
   const hours = q.duration_hours
   const duration = hours && days === 1
-    ? `day hike, about ${hours} hour${hours === 1 ? '' : 's'} of active hiking (back same day)`
+    ? `day trip, about ${hours} hour${hours === 1 ? '' : 's'} of active time (back same day)`
     : days === 1
       ? 'day trip (back same day)'
       : `${days}-day / ${days - 1}-night trip`
 
   const difficulty = q.difficulty === 'surprise'
-    ? 'any difficulty level'
+    ? 'easy to moderate only (surprise — do NOT include hard or strenuous)'
     : `${q.difficulty} difficulty`
 
   const distance = {
@@ -219,25 +245,35 @@ function buildUserPrompt(q: SearchQuery): string {
     any: 'any distance from NYC',
   }[q.distance_from_nyc]
 
+  const seasonLabels: Record<string, string> = {
+    spring: 'Spring (Mar–May) — note mud season, spring flooding, snow at elevation',
+    summer: 'Summer (Jun–Aug) — note heat exposure, water source reliability',
+    fall: 'Fall (Sep–Nov) — generally best conditions, note hunting seasons',
+    winter: 'Winter (Dec–Feb) — only trails safe/accessible in winter, shorter daylight',
+  }
+  const season = seasonLabels[q.season] || q.season
+
   // Calculate minimum hours and miles so Claude can't return short trails for long trips
+  const isKayak = q.activity === 'kayak_flatwater' || q.activity === 'kayak_whitewater'
   let mileageNote = ''
   if (hours && days === 1) {
-    const pace = q.activity === 'kayak' ? 2.5 : 1.5
+    // AMC Book Time: 2 mph hiking, 2 mph flatwater, 2.5 mph river
+    const pace = isKayak ? (q.activity === 'kayak_whitewater' ? 2.0 : 2.0) : 2.0
     const expectedMiles = Math.round(hours * pace)
-    mileageNote = `\nThis is a ${hours}-hour day trip. Trails should take roughly ${hours} hours of active time (~${expectedMiles} miles at ${pace} mph). Do NOT return trails significantly shorter or longer than this.`
+    mileageNote = `\nThis is a ${hours}-hour day trip. Trails should take roughly ${hours} hours of active time (~${expectedMiles} miles at ~${pace} mph base pace, before elevation adjustments). Do NOT return trails significantly shorter or longer than this.`
   } else if (days > 1) {
-    const isKayak = q.activity === 'kayak'
     const hoursPerFiveDays = isKayak
       ? { easy: 5, moderate: 15, hard: 30, strenuous: 30, surprise: 5 }[q.difficulty]
       : { easy: 10, moderate: 20, hard: 25, strenuous: 25, surprise: 10 }[q.difficulty]
     const minHours = Math.round(hoursPerFiveDays * (days / 5))
-    const pace = isKayak ? 2.5 : 1.5
+    const pace = isKayak ? 2.0 : 2.0 // AMC Book Time base
     const minMiles = Math.round(minHours * pace)
-    mileageNote = `\nThis is a ${days}-day trip. MINIMUM active hours: ~${minHours}h. MINIMUM total distance: ~${minMiles} miles (at ${pace} mph avg pace). Do NOT return any trail shorter than this. Use trail length and topography to verify.`
+    mileageNote = `\nThis is a ${days}-day trip. MINIMUM active hours: ~${minHours}h. MINIMUM total distance: ~${minMiles} miles (at ~${pace} mph base pace before elevation adjustments). Do NOT return any trail shorter than this.`
   }
 
   const parts = [
     `Find me 8 ${activity} options.`,
+    `Season: ${season}.`,
     `Duration: ${duration}.`,
     `Difficulty: ${difficulty}.`,
     `Distance: ${distance}.`,
@@ -266,9 +302,14 @@ export async function POST(req: NextRequest) {
     if (body.structured) {
       const sq: SearchQuery = body.structured
       userPrompt = buildUserPrompt(sq)
+      const actLabel: Record<string, string> = {
+        hike: 'hike', backpack: 'backpack',
+        kayak_flatwater: 'flatwater kayak', kayak_whitewater: 'whitewater kayak',
+      }
+      const act = actLabel[sq.activity] || sq.activity
       queryLabel = sq.duration_hours && sq.duration_days === 1
-        ? `${sq.activity} · ${sq.duration_hours}h · ${sq.difficulty}`
-        : `${sq.activity} · ${sq.duration_days === 1 ? 'day trip' : sq.duration_days + ' days'} · ${sq.difficulty}`
+        ? `${act} · ${sq.duration_hours}h · ${sq.difficulty} · ${sq.season}`
+        : `${act} · ${sq.duration_days === 1 ? 'day trip' : sq.duration_days + ' days'} · ${sq.difficulty} · ${sq.season}`
     } else if (body.query && typeof body.query === 'string') {
       // Legacy free-text (critique re-search from ActionBar still uses this)
       userPrompt = body.query

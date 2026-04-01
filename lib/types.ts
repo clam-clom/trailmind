@@ -3,7 +3,7 @@ export interface Trail {
   name: string
   region: string
   state: string
-  activity: 'hike' | 'backpack' | 'kayak'
+  activity: 'hike' | 'backpack' | 'kayak' | 'kayak_flatwater' | 'kayak_whitewater'
   difficulty: 'easy' | 'moderate' | 'hard' | 'strenuous'
   distance_miles: number
   elevation_gain_ft: number | null
@@ -26,11 +26,12 @@ export interface SearchResponse {
 // ── Structured Search ─────────────────────────────────────────────────────────
 
 export interface SearchQuery {
-  activity: 'hike' | 'backpack' | 'kayak'
+  activity: 'hike' | 'backpack' | 'kayak_flatwater' | 'kayak_whitewater'
   duration_days: number // 1-30
   duration_hours?: number // 1-16, used for day hikes instead of days
   difficulty: 'easy' | 'moderate' | 'hard' | 'strenuous' | 'surprise'
   distance_from_nyc: 'under_1hr' | '1-2hrs' | '2-3hrs' | '3plus' | 'any'
+  season: 'spring' | 'summer' | 'fall' | 'winter'
   features: string[]
   notes: string // max 200 chars
 }

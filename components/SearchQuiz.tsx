@@ -4,22 +4,28 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SearchQuery } from '@/lib/types'
 
-const STEPS = ['Activity', 'Duration', 'Difficulty', 'Distance', 'Features']
+const STEPS = ['Activity', 'Season', 'Duration', 'Difficulty', 'Distance', 'Features']
 
 const ACTIVITY_OPTIONS = [
   { value: 'hike', label: 'Day Hike', sub: 'Out and back same day' },
   { value: 'backpack', label: 'Backpacking', sub: 'Overnight, multi-day' },
-  { value: 'kayak', label: 'Kayaking', sub: 'Flatwater or whitewater' },
+  { value: 'kayak_flatwater', label: 'Flatwater Kayak', sub: 'Lakes, ponds, calm rivers' },
+  { value: 'kayak_whitewater', label: 'Whitewater Kayak', sub: 'Rapids and moving water' },
 ]
 
-// Duration is now a free number input (1-30 days), not a dropdown
+const SEASON_OPTIONS = [
+  { value: 'spring', label: 'Spring', sub: 'Mar – May' },
+  { value: 'summer', label: 'Summer', sub: 'Jun – Aug' },
+  { value: 'fall', label: 'Fall', sub: 'Sep – Nov' },
+  { value: 'winter', label: 'Winter', sub: 'Dec – Feb' },
+]
 
 const DIFFICULTY_OPTIONS = [
   { value: 'easy', label: 'Easy', sub: 'Casual, anyone can do it' },
   { value: 'moderate', label: 'Moderate', sub: 'Some fitness required' },
   { value: 'hard', label: 'Hard', sub: 'Experienced and fit' },
   { value: 'strenuous', label: 'Strenuous', sub: 'I want to suffer' },
-  { value: 'surprise', label: 'Surprise me', sub: 'Mix of difficulties' },
+  { value: 'surprise', label: 'Surprise me', sub: 'Easy to moderate only' },
 ]
 
 const DISTANCE_OPTIONS = [
@@ -49,15 +55,19 @@ const FEATURE_CHIPS = [
 
 function buildQueryLabel(q: SearchQuery): string {
   const parts: string[] = []
-  const act = { hike: 'Hike', backpack: 'Backpacking', kayak: 'Kayak' }[q.activity]
-  parts.push(act)
+  const actLabels: Record<string, string> = {
+    hike: 'Hike', backpack: 'Backpacking',
+    kayak_flatwater: 'Flatwater Kayak', kayak_whitewater: 'Whitewater Kayak',
+  }
+  parts.push(actLabels[q.activity] || q.activity)
   if (q.duration_hours && q.duration_days === 1) {
     parts.push(`${q.duration_hours}h`)
   } else {
     parts.push(q.duration_days === 1 ? 'day trip' : `${q.duration_days} days`)
   }
-  const diff = { easy: 'easy', moderate: 'moderate', hard: 'hard', strenuous: 'strenuous', surprise: 'any difficulty' }[q.difficulty]
-  parts.push(diff)
+  const diff: Record<string, string> = { easy: 'easy', moderate: 'moderate', hard: 'hard', strenuous: 'strenuous', surprise: 'any difficulty' }
+  parts.push(diff[q.difficulty] || q.difficulty)
+  parts.push(q.season)
   if (q.features.length > 0) parts.push(q.features.slice(0, 3).join(', '))
   return parts.join(' · ')
 }
@@ -69,10 +79,11 @@ export default function SearchQuiz() {
     duration_days: 1,
     difficulty: 'moderate',
     distance_from_nyc: 'any',
+    season: 'summer',
     features: [],
     notes: '',
   })
-  const [durationInput, setDurationInput] = useState('1')
+  const [durationInput, setDurationInput] = useState('4')
   const [durationError, setDurationError] = useState('')
   const [loading, setLoading] = useState(false)
   const [statusMsg, setStatusMsg] = useState('')
@@ -114,13 +125,16 @@ export default function SearchQuiz() {
     }
   }, [])
 
+  const isDayTrip = query.activity === 'hike'
+
   const handleSingleSelect = (field: keyof SearchQuery, value: string) => {
     setQuery((prev) => ({ ...prev, [field]: value } as SearchQuery))
     // Reset duration input when switching activity type
     if (field === 'activity') {
-      setDurationInput(value === 'hike' ? '4' : '2')
+      const newIsDayTrip = value === 'hike'
+      setDurationInput(newIsDayTrip ? '4' : '2')
       setDurationError('')
-      if (value === 'hike') {
+      if (newIsDayTrip) {
         setQuery((prev) => ({ ...prev, activity: value as SearchQuery['activity'], duration_days: 1, duration_hours: 4 }))
       } else {
         setQuery((prev) => ({ ...prev, activity: value as SearchQuery['activity'], duration_days: 2, duration_hours: undefined }))
@@ -219,8 +233,17 @@ export default function SearchQuiz() {
         />
       )}
 
-      {/* Step 2: Duration — hours for day hikes, days for backpacking/kayaking */}
-      {step === 1 && query.activity === 'hike' && (
+      {/* Step 2: Season */}
+      {step === 1 && (
+        <OptionGrid
+          label="What season?"
+          options={SEASON_OPTIONS}
+          onSelect={(v) => handleSingleSelect('season', v)}
+        />
+      )}
+
+      {/* Step 3: Duration — hours for day hikes, days for everything else */}
+      {step === 2 && isDayTrip && (
         <div>
           <p
             className="text-base font-medium mb-4"
@@ -282,7 +305,7 @@ export default function SearchQuiz() {
         </div>
       )}
 
-      {step === 1 && query.activity !== 'hike' && (
+      {step === 2 && !isDayTrip && (
         <div>
           <p
             className="text-base font-medium mb-4"
@@ -344,8 +367,8 @@ export default function SearchQuiz() {
         </div>
       )}
 
-      {/* Step 3: Difficulty */}
-      {step === 2 && (
+      {/* Step 4: Difficulty */}
+      {step === 3 && (
         <OptionGrid
           label="How hard?"
           options={DIFFICULTY_OPTIONS}
@@ -353,8 +376,8 @@ export default function SearchQuiz() {
         />
       )}
 
-      {/* Step 4: Distance from NYC */}
-      {step === 3 && (
+      {/* Step 5: Distance from NYC */}
+      {step === 4 && (
         <OptionGrid
           label="How far from NYC?"
           options={DISTANCE_OPTIONS}
@@ -362,8 +385,8 @@ export default function SearchQuiz() {
         />
       )}
 
-      {/* Step 5: Features + optional notes + submit */}
-      {step === 4 && (
+      {/* Step 6: Features + optional notes + submit */}
+      {step === 5 && (
         <div>
           <p
             className="text-base font-medium mb-4"
@@ -441,7 +464,7 @@ export default function SearchQuiz() {
         </div>
       )}
 
-      {/* Back button (steps 1-4) */}
+      {/* Back button (steps 1+) */}
       {step > 0 && !loading && (
         <div className="mt-5">
           <button

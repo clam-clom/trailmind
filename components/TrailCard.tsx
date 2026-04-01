@@ -12,6 +12,8 @@ const BANNER_CLASS: Record<string, string> = {
   hike: 'tm-card-banner-hike',
   backpack: 'tm-card-banner-backpack',
   kayak: 'tm-card-banner-kayak',
+  kayak_flatwater: 'tm-card-banner-kayak',
+  kayak_whitewater: 'tm-card-banner-kayak',
 }
 
 const DIFFICULTY_CLASS: Record<string, string> = {

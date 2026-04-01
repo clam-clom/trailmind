@@ -136,24 +136,35 @@ HARD RULES — never break these:
 4. Legal campsites only. Only list designated or primitive FCFS sites on government sources. Never suggest "just camp anywhere."
 5. For the "links" field, return empty arrays — links are handled separately via web search. Do not generate URLs from memory.
 
-PACE & TIME FORMULAS:
-- Average hiker: 1.5 mph + add 1 hour for every 1,000 ft of elevation gained or lost
-- Average paddler: 2 mph in flat water / lakes / ponds, 3 mph in rivers / running water
-- Kayak by class: 2.5 mph flatwater/Class I, 2.0 mph Class II, 1.5 mph or "scout + portage" Class III+
+PACE & TIME FORMULAS (AMC Book Time):
+- Hiking base pace: 2 mph on flat/moderate terrain
+- Add 30 minutes for every 1,000 ft of elevation gain
+- Add 30 minutes for every 1,000 ft of elevation loss
+- Backpacking penalty: reduce effective pace by ~0.5 mph for heavy packs (40+ lbs)
+- Flatwater paddling: 2 mph (lakes, ponds, calm rivers)
+- River/moving water: 3 mph with current
+- Whitewater by class: 2.5 mph Class I, 2.0 mph Class II, 1.5 mph or "scout + portage" Class III+
 - HARD CAP: Never exceed 7–8 hours of active hiking per day. If a day would exceed this, split it across multiple days.
 - HARD CAP: Never exceed 6 hours of active paddling per day. If a section would exceed this, split it.
 - Water breaks: 5 min every 30 min of hiking
 - Snack breaks: 10–15 min every 1 hour of hiking
 - Allotted time = expected time + 30 min buffer
 - LAYOVER DAYS: max 1 layover day per trip. Most days the group should be moving to their next campsite.
+${quiz.duration_hours ? `\nDURATION NOTE: This is a ${quiz.duration_hours}-hour day trip. Plan for exactly ${quiz.duration_hours} hours of active time, not a full day. Scale gear, food, and water accordingly.` : ''}
 
-FOOD WEIGHT (NOLS standard):
-- Mild/short (summer, easy): ~1.5 lbs/person/day
-- Moderate (longer, cooler): ~1.75 lbs/person/day
-- Strenuous/cold (heavy packs, fall/winter): ~2.0–2.5 lbs/person/day
+FOOD WEIGHT:
+- Easy/short (summer, day hikes): ~2.0 lbs/person/day (standard caloric density backpacking food from REI/outfitter)
+- Moderate (longer, cooler): ~2.0–2.25 lbs/person/day
+- Strenuous/cold (heavy packs, fall/winter): ~2.25–2.5 lbs/person/day
+- NOTE: 1.5 lbs/day is only achievable with ultralight calorie-dense food selection. Most users buying standard backpacking meals should plan for 2+ lbs/day.
 - Always add 1 emergency ration per person (extra lunch or dinner)
 - Suggest meal NAMES only — no recipes, no ingredient lists, no calorie counts
 - Scale quantities for the group size
+
+EVACUATION PLAN DISCLAIMER:
+- You are generating evacuation plans from general knowledge. Include this disclaimer in the first item of evac_plan.general:
+  "IMPORTANT: This evacuation plan is AI-generated from general trail knowledge and may contain inaccuracies. Verify all exit points, road access, cell service, and hospital locations with current maps and local ranger stations before your trip. Do not rely solely on this document for emergency planning."
+- For cell_service, write "Verify" instead of guessing if you are not confident. Bad cell service info is worse than no info.
 
 ${isLongTrip ? `
 LONG TRIP RULES (this trip is ${durationDays} days):
@@ -172,7 +183,7 @@ ${JSON.stringify(trail, null, 2)}
 Quiz answers:
 - Trip type: ${quiz.trip_type}
 - Group size: ${quiz.group_size} (${groupNum} ${groupNum === 1 ? 'person' : 'people'})
-- Duration: ${quiz.duration_hours ? `${quiz.duration_hours} hours (day trip)` : `${quiz.duration_days} ${quiz.duration_days === 1 ? 'day' : 'days'}`}
+- Duration: ${quiz.duration_hours ? `${quiz.duration_hours} hours (day trip — NOT a full day, plan for exactly ${quiz.duration_hours} hours of active time)` : `${quiz.duration_days} ${quiz.duration_days === 1 ? 'day' : 'days'}`}
 - Season: ${quiz.season}
 - Experience level: ${quiz.experience}
 
