@@ -163,6 +163,14 @@ function DayCard({ day }: { day: DopeSheetDay }) {
           Turn back if you&apos;ve passed: <VerifyText text={day.bailout_marker} />
         </div>
       )}
+      {day.turnaround_time && (
+        <div
+          className="mt-2 px-3 py-2 rounded-lg text-sm font-medium"
+          style={{ background: 'rgba(252,169,68,0.25)', color: '#0D3323' }}
+        >
+          <VerifyText text={day.turnaround_time} />
+        </div>
+      )}
       {day.breaks.length > 0 && (
         <div className="mt-3">
           <span className="label-caps block mb-1.5">Break schedule</span>

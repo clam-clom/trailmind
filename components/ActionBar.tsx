@@ -59,7 +59,28 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
       body: JSON.stringify({ query: newQuery }),
     })
     if (res.ok) {
-      const data = await res.json()
+      // Search API returns streaming text/plain — read it the same way SearchQuiz does
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let lineBuffer = ''
+      let dataBuffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        lineBuffer += chunk
+        const lines = lineBuffer.split('\n')
+        lineBuffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('s:')) {
+            dataBuffer += line + '\n'
+          }
+        }
+      }
+      if (lineBuffer && !lineBuffer.startsWith('s:')) dataBuffer += lineBuffer
+
+      const data = JSON.parse(dataBuffer.trim())
       sessionStorage.setItem('trailmind_results', JSON.stringify(data))
       sessionStorage.setItem('trailmind_query', newQuery)
       router.push(`/results?q=${encodeURIComponent(newQuery)}`)

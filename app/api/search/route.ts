@@ -105,13 +105,18 @@ IMPORTANT — URLs:
 - Still set "source" to the correct data source name (e.g. "NPS", "AllTrails", "NYS DEC").
 
 PACE CALCULATIONS (AMC Book Time formula):
-- Hiking base pace: 2 mph on flat/moderate terrain
+- Hiking base pace: 2 mph on YDS Class 1 trail (maintained, no scrambling)
 - Add 30 minutes for every 1,000 ft of elevation gain
 - Add 30 minutes for every 1,000 ft of elevation loss (descents slow you down too)
+- TERRAIN PENALTY: Class 2 terrain (rocky, minor scrambles): 1.5 mph. Class 3 (hands required): 1.0 mph. Sustained talus/boulder fields: 0.75 mph.
 - Backpacking penalty: reduce pace by ~0.5 mph for heavy packs (40+ lbs)
-- Flatwater paddling: 2 mph (lakes, ponds, calm rivers)
-- River/moving water paddling: 3 mph with current
-- Whitewater paddling by class: 2.5 mph Class I, 2.0 mph Class II, 1.5 mph Class III+ (includes scouting/portaging time)
+- Group rule: pace the group to the slowest member
+- Flatwater paddling: 2.0 mph on still water (lakes, ponds). Moving water with current adds speed — do not assume current in planning.
+- WHITEWATER — use DAILY MILEAGE CAPS, not speed formulas:
+  - Class I: 10–15 miles/day
+  - Class II: 8–12 miles/day
+  - Class III: 6–10 miles/day (includes 30–60 min scouting per significant rapid)
+  - Class III+/IV: 4–8 miles/day (expert only, mandatory scouting and portaging)
 
 SEASON AWARENESS:
 - The user will specify a season. Factor this into recommendations:
@@ -126,7 +131,7 @@ DIFFICULTY RANKING — use these exact criteria:
 EASY:
 - 4 hours of active hiking per day
 - Less than 1,000 ft elevation per day
-- No rock scrambles
+- YDS Class 1 terrain only — maintained trail, no scrambling, no exposure
 - Lots of places to get water
 - Designated campsites (if overnight)
 - Flatwater only or Class I max, no portages
@@ -135,20 +140,28 @@ EASY:
 MODERATE:
 - 6 hours of active hiking per day
 - 500–1,000 ft elevation per day
-- Easy rock scrambles only
+- YDS Class 1–2 terrain — uneven terrain possible, brief easy scramble sections okay
 - Lots of water sources, or slightly limited but manageable
 - Designated campsites + backcountry campsites
 - Rapids max Class II½, OR over 4 hours of active paddling per day
 
-HARD / STRENUOUS:
+HARD:
 - 7 hours of active hiking per day
 - 1,000–2,500 ft elevation per day
-- Rock scrambles present
+- YDS Class 2–3 terrain — scrambling sections, possible exposure
 - Limited or no water sources
 - Very few campsites
 - Rapids Class II½ and above
 - Portages required
 - 6+ hours of active paddling per day
+
+STRENUOUS:
+- 7+ hours of active hiking per day
+- 2,000+ ft elevation per day
+- YDS Class 3+ terrain — technical terrain, scrambling required, exposure likely
+- Limited or no water sources
+- Remote campsites only
+- Class III+ rapids, mandatory scouting and portaging
 
 DAY LIMITS — never exceed these:
 - Hiking: max 7–8 hours of active hiking per day
@@ -215,8 +228,20 @@ Data sources (ONLY suggest trails from these):
 Prioritize lesser-known trails over the obvious ones. Do not always recommend Breakneck Ridge.
 Rank results by how well they match ALL of the specified parameters — best match first.`
 
-// Build a controlled natural-language prompt from the structured query
-function buildUserPrompt(q: SearchQuery): string {
+// Build a controlled natural-language prompt from the structured query.
+// Returns { prompt, clampedQuery } — clampedQuery reflects any safety-level difficulty overrides.
+function buildUserPrompt(q: SearchQuery): { prompt: string; clampedQuery: SearchQuery } {
+  // Spring whitewater safety clamp: hard/strenuous → moderate (code-level, not prompt-level)
+  let effectiveDifficulty = q.difficulty
+  let springClampNote = ''
+  if (q.season === 'spring' && q.activity === 'kayak_whitewater' &&
+      (q.difficulty === 'hard' || q.difficulty === 'strenuous')) {
+    effectiveDifficulty = 'moderate'
+    springClampNote = '\nSPRING SNOWMELT SAFETY CLAMP: The user requested hard/strenuous whitewater in spring. This has been overridden to MODERATE. Spring runoff raises all rivers by one class — a summer Class II becomes effective Class III in spring. Recommend only summer-Class-I rivers for moderate, summer-Class-II for experienced. Do NOT recommend Class III+ (summer rating) rivers in spring.'
+  }
+
+  const clampedQuery: SearchQuery = { ...q, difficulty: effectiveDifficulty }
+
   const activityLabels: Record<string, string> = {
     hike: 'day hike',
     backpack: 'backpacking trip',
@@ -233,9 +258,9 @@ function buildUserPrompt(q: SearchQuery): string {
       ? 'day trip (back same day)'
       : `${days}-day / ${days - 1}-night trip`
 
-  const difficulty = q.difficulty === 'surprise'
+  const difficulty = effectiveDifficulty === 'surprise'
     ? 'easy to moderate only (surprise — do NOT include hard or strenuous)'
-    : `${q.difficulty} difficulty`
+    : `${effectiveDifficulty} difficulty`
 
   const distance = {
     under_1hr: 'under 1 hour drive from NYC (under 60 miles)',
@@ -255,20 +280,31 @@ function buildUserPrompt(q: SearchQuery): string {
 
   // Calculate minimum hours and miles so Claude can't return short trails for long trips
   const isKayak = q.activity === 'kayak_flatwater' || q.activity === 'kayak_whitewater'
+  const isWhitewater = q.activity === 'kayak_whitewater'
   let mileageNote = ''
   if (hours && days === 1) {
-    // AMC Book Time: 2 mph hiking, 2 mph flatwater, 2.5 mph river
-    const pace = isKayak ? (q.activity === 'kayak_whitewater' ? 2.0 : 2.0) : 2.0
-    const expectedMiles = Math.round(hours * pace)
-    mileageNote = `\nThis is a ${hours}-hour day trip. Trails should take roughly ${hours} hours of active time (~${expectedMiles} miles at ~${pace} mph base pace, before elevation adjustments). Do NOT return trails significantly shorter or longer than this.`
+    // Hiking and flatwater: 2.0 mph base. Whitewater day trips: use 8 mi/day cap.
+    if (isWhitewater) {
+      mileageNote = `\nThis is a ${hours}-hour whitewater day trip. Use daily mileage caps by class (Class I: 10–15 mi, Class II: 8–12 mi, Class III: 6–10 mi). Do NOT recommend rivers longer than the class-appropriate daily cap.`
+    } else {
+      const pace = 2.0 // AMC Book Time base for hiking and flatwater
+      const expectedMiles = Math.round(hours * pace)
+      mileageNote = `\nThis is a ${hours}-hour day trip. Trails should take roughly ${hours} hours of active time (~${expectedMiles} miles at ~${pace} mph base pace, before elevation adjustments). Do NOT return trails significantly shorter or longer than this.`
+    }
   } else if (days > 1) {
-    const hoursPerFiveDays = isKayak
-      ? { easy: 5, moderate: 15, hard: 30, strenuous: 30, surprise: 5 }[q.difficulty]
-      : { easy: 10, moderate: 20, hard: 25, strenuous: 25, surprise: 10 }[q.difficulty]
-    const minHours = Math.round(hoursPerFiveDays * (days / 5))
-    const pace = isKayak ? 2.0 : 2.0 // AMC Book Time base
-    const minMiles = Math.round(minHours * pace)
-    mileageNote = `\nThis is a ${days}-day trip. MINIMUM active hours: ~${minHours}h. MINIMUM total distance: ~${minMiles} miles (at ~${pace} mph base pace before elevation adjustments). Do NOT return any trail shorter than this.`
+    if (isWhitewater) {
+      // Whitewater multi-day: use 8 mi/day conservative baseline
+      const minMiles = Math.round(days * 8)
+      mileageNote = `\nThis is a ${days}-day whitewater trip. MINIMUM total distance: ~${minMiles} miles (at ~8 mi/day conservative baseline — adjust per class). Do NOT return any route shorter than this.`
+    } else {
+      const hoursPerFiveDays = isKayak
+        ? { easy: 12, moderate: 20, hard: 30, strenuous: 30, surprise: 20 }[effectiveDifficulty]
+        : { easy: 10, moderate: 20, hard: 25, strenuous: 25, surprise: 10 }[effectiveDifficulty]
+      const minHours = Math.round(hoursPerFiveDays! * (days / 5))
+      const pace = 2.0 // AMC Book Time base for hiking and flatwater
+      const minMiles = Math.round(minHours * pace)
+      mileageNote = `\nThis is a ${days}-day trip. MINIMUM active hours: ~${minHours}h. MINIMUM total distance: ~${minMiles} miles (at ~${pace} mph base pace before elevation adjustments). Do NOT return any trail shorter than this.`
+    }
   }
 
   const parts = [
@@ -289,7 +325,11 @@ function buildUserPrompt(q: SearchQuery): string {
     parts.push(`Additional notes: ${notes}`)
   }
 
-  return parts.join('\n')
+  if (springClampNote) {
+    parts.push(springClampNote)
+  }
+
+  return { prompt: parts.join('\n'), clampedQuery }
 }
 
 export async function POST(req: NextRequest) {
@@ -298,18 +338,22 @@ export async function POST(req: NextRequest) {
 
     let userPrompt: string
     let queryLabel: string
+    let clampedQueryJson: string | undefined
 
     if (body.structured) {
       const sq: SearchQuery = body.structured
-      userPrompt = buildUserPrompt(sq)
+      const { prompt, clampedQuery } = buildUserPrompt(sq)
+      userPrompt = prompt
+      // Store the post-clamp query so the client can persist it correctly
+      clampedQueryJson = JSON.stringify(clampedQuery)
       const actLabel: Record<string, string> = {
         hike: 'hike', backpack: 'backpack',
         kayak_flatwater: 'flatwater kayak', kayak_whitewater: 'whitewater kayak',
       }
-      const act = actLabel[sq.activity] || sq.activity
-      queryLabel = sq.duration_hours && sq.duration_days === 1
-        ? `${act} · ${sq.duration_hours}h · ${sq.difficulty} · ${sq.season}`
-        : `${act} · ${sq.duration_days === 1 ? 'day trip' : sq.duration_days + ' days'} · ${sq.difficulty} · ${sq.season}`
+      const act = actLabel[clampedQuery.activity] || clampedQuery.activity
+      queryLabel = clampedQuery.duration_hours && clampedQuery.duration_days === 1
+        ? `${act} · ${clampedQuery.duration_hours}h · ${clampedQuery.difficulty} · ${clampedQuery.season}`
+        : `${act} · ${clampedQuery.duration_days === 1 ? 'day trip' : clampedQuery.duration_days + ' days'} · ${clampedQuery.difficulty} · ${clampedQuery.season}`
     } else if (body.query && typeof body.query === 'string') {
       // Legacy free-text (critique re-search from ActionBar still uses this)
       userPrompt = body.query
@@ -384,7 +428,8 @@ export async function POST(req: NextRequest) {
           }
 
           s(`${trails.length} trails ready`)
-          const data = { trails, query: queryLabel }
+          const data: Record<string, unknown> = { trails, query: queryLabel }
+          if (clampedQueryJson) data.clampedQuery = JSON.parse(clampedQueryJson)
           controller.enqueue(encoder.encode(JSON.stringify(data)))
         } catch (err) {
           console.error('Search error:', err)

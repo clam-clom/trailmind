@@ -168,7 +168,10 @@ export default function TrailDetailPage() {
   }
 
   const diffClass = DIFFICULTY_CLASS[trail.difficulty] || 'tag-base'
-  const driveHours = Math.round((trail.distance_from_nyc_miles / 55) * 10) / 10
+  // Drive time: 45-min NYC exit penalty + 50 mph highway, rounded to nearest half hour
+  const rawDriveHours = 0.75 + trail.distance_from_nyc_miles / 50
+  const driveHours = Math.round(rawDriveHours * 2) / 2
+  const driveSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(`"${trail.name}" ${trail.state} trailhead directions from NYC`)}`
 
   return (
     <main className="min-h-screen pb-36" style={{ background: '#e8edda' }}>
@@ -276,8 +279,20 @@ export default function TrailDetailPage() {
         {/* Getting there */}
         <div className="tm-card p-5 mb-4">
           <h2 className="label-caps mb-3">Getting there</h2>
-          <p className="text-sm mb-2" style={{ color: '#4a6858' }}>
+          <p className="text-sm mb-1" style={{ color: '#4a6858' }}>
             ~{driveHours}h drive from NYC ({trail.distance_from_nyc_miles} miles)
+          </p>
+          <a
+            href={driveSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline inline-block mb-2"
+            style={{ color: '#0D3323' }}
+          >
+            Get directions →
+          </a>
+          <p className="text-xs mb-2" style={{ color: '#5a7860', fontStyle: 'italic' }}>
+            Estimate only — check Google Maps for real-time traffic, especially Friday evenings and Saturday mornings
           </p>
           {trail.transit_accessible && (
             <p className="text-sm" style={{ color: '#0D3323' }}>

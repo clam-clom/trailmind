@@ -21,13 +21,24 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
   const defaultDays = defaultIsDayTrip ? 1 : Math.max(2, Math.min(30, Math.ceil(trail.estimated_hours / 8)))
   const defaultHours = defaultIsDayTrip ? Math.max(1, Math.min(16, Math.ceil(trail.estimated_hours))) : undefined
 
+  // Pre-populate season from the search query if available (post-clamp version)
+  let storedSeason: DopeSheetQuizAnswers['season'] = 'summer'
+  if (typeof window !== 'undefined') {
+    try {
+      const sq = JSON.parse(sessionStorage.getItem('trailmind_search_query') || '{}')
+      if (sq.season && ['spring', 'summer', 'fall', 'winter'].includes(sq.season)) {
+        storedSeason = sq.season
+      }
+    } catch {}
+  }
+
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<DopeSheetQuizAnswers>({
     trip_type: defaultType,
     group_size: 'solo',
     duration_days: defaultDays,
     duration_hours: defaultHours,
-    season: 'summer',
+    season: storedSeason,
     experience: 'some_experience',
   })
   const [durationInput, setDurationInput] = useState(String(defaultIsDayTrip ? (defaultHours ?? 4) : defaultDays))
@@ -119,15 +130,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
         )}
 
         {step === 1 && (
-          <QuizQuestion
-            label="How many people?"
-            options={[
-              { value: 'solo', label: 'Solo', sub: 'Just you' },
-              { value: '2', label: '2', sub: 'A pair' },
-              { value: '3-4', label: '3–4', sub: 'Small group' },
-              { value: '5+', label: '5+', sub: 'Large group' },
-            ]}
-
+          <GroupSizeStep
             onSelect={(v) => handleSelect('group_size', v)}
           />
         )}
@@ -282,6 +285,98 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function GroupSizeStep({ onSelect }: { onSelect: (v: string) => void }) {
+  const [showInput, setShowInput] = useState(false)
+  const [groupCount, setGroupCount] = useState('6')
+  const [error, setError] = useState('')
+
+  const smallOptions = [
+    { value: 'solo', label: 'Solo', sub: 'Just you' },
+    { value: '2', label: '2', sub: 'A pair' },
+    { value: '3-4', label: '3–4', sub: 'Small group' },
+  ]
+
+  return (
+    <div>
+      <p
+        className="text-base font-medium mb-4"
+        style={{ color: '#0D3323', fontFamily: 'Comfortaa, sans-serif' }}
+      >
+        How many people?
+      </p>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        {smallOptions.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => onSelect(opt.value)}
+            className="p-3 rounded-xl text-left transition-all"
+            style={{ background: '#ffffff', border: '1.5px solid #c0ceac', color: '#0D3323' }}
+          >
+            <div className="font-medium text-sm" style={{ fontFamily: 'Comfortaa, sans-serif', color: '#0D3323' }}>
+              {opt.label}
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#5a7860' }}>{opt.sub}</div>
+          </button>
+        ))}
+        <button
+          onClick={() => setShowInput(true)}
+          className="p-3 rounded-xl text-left transition-all"
+          style={{
+            background: showInput ? '#edf1e4' : '#ffffff',
+            border: `1.5px solid ${showInput ? '#0D3323' : '#c0ceac'}`,
+            color: '#0D3323',
+          }}
+        >
+          <div className="font-medium text-sm" style={{ fontFamily: 'Comfortaa, sans-serif', color: '#0D3323' }}>5+</div>
+          <div className="text-xs mt-0.5" style={{ color: '#5a7860' }}>Large group</div>
+        </button>
+      </div>
+
+      {showInput && (
+        <div className="mt-3">
+          <div className="flex items-center gap-4 mb-2">
+            <input
+              type="number"
+              min={5}
+              max={12}
+              value={groupCount}
+              onChange={(e) => {
+                const raw = e.target.value
+                setGroupCount(raw)
+                const num = parseInt(raw, 10)
+                if (isNaN(num) || num < 5 || num > 12) {
+                  setError('Enter a number between 5 and 12')
+                } else {
+                  setError('')
+                }
+              }}
+              className="w-24 px-4 py-3 rounded-xl text-center text-lg outline-none"
+              style={{ background: '#edf1e4', border: '1px solid #c0ceac', color: '#0D3323', fontFamily: 'Comfortaa, sans-serif', fontWeight: 700 }}
+            />
+            <span style={{ color: '#4a6858', fontFamily: 'Comfortaa, sans-serif', fontSize: '14px' }}>people</span>
+          </div>
+          {error && <p className="text-xs mb-2" style={{ color: '#FCA944' }}>{error}</p>}
+          <p className="text-xs mb-3" style={{ color: '#5a7860' }}>
+            5–12 people · groups over 8 may need to split for permits
+          </p>
+          <button
+            onClick={() => {
+              const num = parseInt(groupCount, 10)
+              if (!isNaN(num) && num >= 5 && num <= 12) {
+                onSelect(String(num))
+              }
+            }}
+            className="pill-btn btn-green px-6 py-2.5 text-sm"
+            disabled={!!error || !groupCount}
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -198,6 +198,12 @@ export default function SearchQuiz() {
       const label = buildQueryLabel(query)
       sessionStorage.setItem('trailmind_results', JSON.stringify(data))
       sessionStorage.setItem('trailmind_query', label)
+      // Store post-clamp query for DOPE sheet season/difficulty pre-population
+      if (data.clampedQuery) {
+        sessionStorage.setItem('trailmind_search_query', JSON.stringify(data.clampedQuery))
+      } else {
+        sessionStorage.setItem('trailmind_search_query', JSON.stringify(query))
+      }
       router.push(`/results?q=${encodeURIComponent(label)}`)
     } catch {
       setLoading(false)
@@ -369,11 +375,21 @@ export default function SearchQuiz() {
 
       {/* Step 4: Difficulty */}
       {step === 3 && (
-        <OptionGrid
-          label="How hard?"
-          options={DIFFICULTY_OPTIONS}
-          onSelect={(v) => handleSingleSelect('difficulty', v)}
-        />
+        <>
+          <OptionGrid
+            label="How hard?"
+            options={DIFFICULTY_OPTIONS}
+            onSelect={(v) => handleSingleSelect('difficulty', v)}
+          />
+          {query.season === 'spring' && query.activity === 'kayak_whitewater' && (
+            <div
+              className="mt-3 px-4 py-3 rounded-xl text-xs"
+              style={{ background: 'rgba(252,169,68,0.2)', color: '#0D3323', border: '1px solid #FCA944' }}
+            >
+              Spring runoff raises river difficulty by one class. If you select hard or strenuous, your search will be adjusted to moderate for safety.
+            </div>
+          )}
+        </>
       )}
 
       {/* Step 5: Distance from NYC */}

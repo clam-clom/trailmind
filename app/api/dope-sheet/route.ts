@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       quiz.group_size === 'solo' ? 1
       : quiz.group_size === '2' ? 2
       : quiz.group_size === '3-4' ? 3
-      : 5
+      : parseInt(quiz.group_size, 10) || 6 // "5+" numeric input (5-12), fallback 6
 
     const durationDays = quiz.duration_days
     const isOvernight = durationDays > 1
@@ -137,13 +137,19 @@ HARD RULES — never break these:
 5. For the "links" field, return empty arrays — links are handled separately via web search. Do not generate URLs from memory.
 
 PACE & TIME FORMULAS (AMC Book Time):
-- Hiking base pace: 2 mph on flat/moderate terrain
+- Hiking base pace: 2 mph on YDS Class 1 trail (maintained, no scrambling)
 - Add 30 minutes for every 1,000 ft of elevation gain
 - Add 30 minutes for every 1,000 ft of elevation loss
+- TERRAIN PENALTY: The 2 mph base pace applies to Class 1 trail only. Class 2 (rocky, minor scrambles): 1.5 mph. Class 3 (hands required): 1.0 mph. Sustained talus/boulder fields: 0.75 mph. These compound with elevation gain penalty.
 - Backpacking penalty: reduce effective pace by ~0.5 mph for heavy packs (40+ lbs)
-- Flatwater paddling: 2 mph (lakes, ponds, calm rivers)
-- River/moving water: 3 mph with current
-- Whitewater by class: 2.5 mph Class I, 2.0 mph Class II, 1.5 mph or "scout + portage" Class III+
+- Group rule: pace the entire plan to the slowest member
+- Flatwater paddling: 2.0 mph on still water (lakes, ponds). Moving water with current adds speed — do not assume current in planning.
+- WHITEWATER — use DAILY MILEAGE CAPS, not speed formulas:
+  - Class I: 10–15 miles/day
+  - Class II: 8–12 miles/day
+  - Class III: 6–10 miles/day
+  - Class III+/IV: 4–8 miles/day (expert only, mandatory scouting)
+  - Scouting time: budget 30–60 minutes per Class III+ rapid. A technical Class III day with 4–6 rapids to scout can lose 2–3 hours to scouting alone. These daily mileage caps already account for scouting — do not add mileage on top of them.
 - HARD CAP: Never exceed 7–8 hours of active hiking per day. If a day would exceed this, split it across multiple days.
 - HARD CAP: Never exceed 6 hours of active paddling per day. If a section would exceed this, split it.
 - Water breaks: 5 min every 30 min of hiking
@@ -151,6 +157,14 @@ PACE & TIME FORMULAS (AMC Book Time):
 - Allotted time = expected time + 30 min buffer
 - LAYOVER DAYS: max 1 layover day per trip. Most days the group should be moving to their next campsite.
 ${quiz.duration_hours ? `\nDURATION NOTE: This is a ${quiz.duration_hours}-hour day trip. Plan for exactly ${quiz.duration_hours} hours of active time, not a full day. Scale gear, food, and water accordingly.` : ''}
+
+SHARED GEAR SCALING (for the "shared" gear list):
+- Bear canisters: 1 per 3 people (round up). Bear canisters are legally required in many wilderness areas and sized per-person.
+- Stoves: 1 per 4 people (round up)
+- First aid kits: 1 standard kit for ≤4 people, add a secondary kit for 5+
+- Water filters: 1 per 4 people (round up)
+- Tents: list by actual capacity needed (e.g. "3 × 2-person tents for 6 people"), not "1 tent"
+- Scale all shared items for the EXACT group size provided, not a generic number.
 
 FOOD WEIGHT:
 - Easy/short (summer, day hikes): ~2.0 lbs/person/day (standard caloric density backpacking food from REI/outfitter)
@@ -160,6 +174,13 @@ FOOD WEIGHT:
 - Always add 1 emergency ration per person (extra lunch or dinner)
 - Suggest meal NAMES only — no recipes, no ingredient lists, no calorie counts
 - Scale quantities for the group size
+
+WATER SOURCE RELIABILITY:
+- In late summer (July–September) and fall, flag any water source that is a small stream, seasonal spring, or intermittent creek with "[seasonal — verify flow before trip]".
+- In winter, note that water sources may be frozen and recommend carrying extra capacity.
+- Always plan carry capacity to reach the next reliable source even if a mid-route source fails.
+- Minimum: 1 liter per 2 hours of hiking; increase in heat or strenuous terrain.
+- For the gear list, include enough water capacity for the longest dry stretch on the route.
 
 EVACUATION PLAN DISCLAIMER:
 - You are generating evacuation plans from general knowledge. Include this disclaimer in the first item of evac_plan.general:
@@ -186,7 +207,8 @@ Quiz answers:
 - Duration: ${quiz.duration_hours ? `${quiz.duration_hours} hours (day trip — NOT a full day, plan for exactly ${quiz.duration_hours} hours of active time)` : `${quiz.duration_days} ${quiz.duration_days === 1 ? 'day' : 'days'}`}
 - Season: ${quiz.season}
 - Experience level: ${quiz.experience}
-
+${groupNum >= 8 ? `\nMANDATORY LARGE GROUP CALLOUT: This group has ${groupNum} people. You MUST include the following in safety_callouts: "Groups of ${groupNum} people must split into independent units of 8 or fewer in most wilderness areas. Verify permit limits and campsite capacity for your specific destination before your trip. Plan food, gear, and campsites as two separate groups."` : ''}
+${quiz.season === 'spring' && isKayak ? `\nSPRING WHITEWATER: This is a spring trip on water. All river classifications should note their spring-adjusted effective class (one class higher than summer rating). Include a prominent safety callout about spring runoff conditions.` : ''}
 Return JSON matching this exact structure:
 
 {
@@ -212,7 +234,8 @@ Return JSON matching this exact structure:
       "start_position": string,
       "end_position": string,
       "campsite": string or omit if day trip,
-      "bailout_marker": string,
+      "bailout_marker": string,${!isOvernight ? `
+      "turnaround_time": "If not at [midpoint] by [time], turn back — this ensures sufficient daylight for return",` : ''}
       "breaks": ["2 × 5 min water @ 30 min, 1 hr", "1 × 10 min snack @ 1 hr"],
       "class_rating": string or omit if hiking,
       "put_in": string or omit if hiking,

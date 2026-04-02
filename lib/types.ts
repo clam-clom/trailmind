@@ -55,7 +55,7 @@ export interface Interaction {
 
 export interface DopeSheetQuizAnswers {
   trip_type: 'hike' | 'backpack' | 'kayak_day' | 'kayak_expedition'
-  group_size: 'solo' | '2' | '3-4' | '5+'
+  group_size: 'solo' | '2' | '3-4' | string // '5+' reveals numeric input (5-12)
   duration_days: number // 1-30
   duration_hours?: number // 1-16, for day trips (hike / kayak_day)
   season: 'spring' | 'summer' | 'fall' | 'winter'
@@ -74,6 +74,7 @@ export interface DopeSheetDay {
   end_position: string
   campsite?: string
   bailout_marker: string
+  turnaround_time?: string // day hikes only — "If not at [midpoint] by [time], turn back"
   breaks: string[]
   // kayak-specific
   class_rating?: string
