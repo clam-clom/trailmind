@@ -175,6 +175,19 @@ FOOD WEIGHT:
 - Suggest meal NAMES only — no recipes, no ingredient lists, no calorie counts
 - Scale quantities for the group size
 
+PACK WEIGHT ESTIMATE (overnight trips only):
+- Base gear weight ranges by user category: ultralight = 10–14 lbs, standard = 18–22 lbs, heavy = 26–32 lbs, unknown = use standard (18–22 lbs).
+- Food weight: use the food weight rates above × number of carry days between resupply.
+- Water weight: 2.2 lbs per liter. Plan for the longest dry stretch on day 1.
+- Estimated total = base gear + food + water (first day carry). Give as a range.
+- If total exceeds 50 lbs, add a warning: "Pack weight over 50 lbs significantly increases injury risk. Consider reducing base weight or shortening carry days."
+
+RESUPPLY PLANNING (overnight trips > 5 days only):
+- Max food carry: 5 days for standard packing, 7 days for ultralight food.
+- If trip duration exceeds max carry days, set required=true and list resupply intervals.
+- For resupply_intervals.method_suggestion: list ONLY generic method types — "town resupply," "mail drop," or "road crossing cache." Do NOT describe specific geographic features, access points, roads, or trail-specific locations in method_suggestion. The user cannot verify these. Example: "Town resupply or mail drop — research access points for your specific route using the trail map and land manager website."
+- Always include disclaimer: "Resupply locations are suggestions only. Verify all access points, post office hours, and road conditions with current maps and the local land manager before your trip."
+
 WATER SOURCE RELIABILITY:
 - In late summer (July–September) and fall, flag any water source that is a small stream, seasonal spring, or intermittent creek with "[seasonal — verify flow before trip]".
 - In winter, note that water sources may be frozen and recommend carrying extra capacity.
@@ -207,6 +220,7 @@ Quiz answers:
 - Duration: ${quiz.duration_hours ? `${quiz.duration_hours} hours (day trip — NOT a full day, plan for exactly ${quiz.duration_hours} hours of active time)` : `${quiz.duration_days} ${quiz.duration_days === 1 ? 'day' : 'days'}`}
 - Season: ${quiz.season}
 - Experience level: ${quiz.experience}
+${quiz.pack_category ? `- Pack weight category: ${quiz.pack_category}${quiz.pack_category === 'unknown' ? ' (use standard 18–22 lbs base weight)' : ''}` : ''}
 ${groupNum >= 8 ? `\nMANDATORY LARGE GROUP CALLOUT: This group has ${groupNum} people. You MUST include the following in safety_callouts: "Groups of ${groupNum} people must split into independent units of 8 or fewer in most wilderness areas. Verify permit limits and campsite capacity for your specific destination before your trip. Plan food, gear, and campsites as two separate groups."` : ''}
 ${quiz.season === 'spring' && isKayak ? `\nSPRING WHITEWATER: This is a spring trip on water. All river classifications should note their spring-adjusted effective class (one class higher than summer rating). Include a prominent safety callout about spring runoff conditions.` : ''}
 Return JSON matching this exact structure:
@@ -259,6 +273,20 @@ Return JSON matching this exact structure:
     "personal": [list of personal gear items as strings, scaled for season ${quiz.season} and type ${quiz.trip_type}],
     "shared": [list of shared group gear items as strings, scaled for ${groupNum} ${groupNum === 1 ? 'person' : 'people'}]
   },
+  ${isOvernight ? `"pack_weight_estimate": {
+    "base_gear_lbs": string,
+    "food_lbs": number,
+    "water_lbs": number,
+    "estimated_total": string,
+    "warning": string or omit if under 50 lbs
+  },` : ''}
+  ${isOvernight && durationDays > 5 ? `"resupply_plan": {
+    "required": boolean,
+    "max_carry_days": number,
+    "resupply_intervals": [{ "after_day": number, "method_suggestion": string }],
+    "total_food_weight_lbs": number,
+    "disclaimer": "Resupply locations are suggestions only. Verify all access points, post office hours, and road conditions with current maps and the local land manager before your trip."
+  },` : ''}
   ${!isOvernight ? `"water_and_snacks": string describing how much water to carry and where to source it,` : ''}
   "evac_plan": {
     "general": [
@@ -325,6 +353,8 @@ Return JSON matching this exact structure:
             ['"personal":',        'Listing personal gear...'],
             ['"shared":',          'Listing shared group gear...'],
             ['"food_plan":',       'Planning meals...'],
+            ['"pack_weight_estimate":', 'Estimating pack weight...'],
+            ['"resupply_plan":',   'Planning resupply strategy...'],
             ['"water_and_snacks":', 'Planning water & snacks...'],
             ['"evac_plan":',       'Drafting evacuation plan...'],
             ['"rapids":',          'Cataloging rapids & portages...'],

@@ -51,12 +51,32 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
       })
     } catch {}
 
-    const originalQuery = sessionStorage.getItem('trailmind_query') || trail.activity
-    const newQuery = `${originalQuery} — but ${critiqueText.toLowerCase()}`
+    // Try structured re-search first (carries critique through clampedQuery cycle)
+    const storedSq = sessionStorage.getItem('trailmind_search_query')
+    let body: Record<string, unknown>
+    let queryLabel: string
+
+    if (storedSq) {
+      try {
+        const sq = JSON.parse(storedSq)
+        sq.critique = critiqueText.slice(0, 300)
+        body = { structured: sq }
+        queryLabel = `${sq.activity} · critique: ${critiqueText.slice(0, 60)}`
+      } catch {
+        const fallback = sessionStorage.getItem('trailmind_query') || trail.activity
+        body = { query: `${fallback} — but ${critiqueText.toLowerCase()}` }
+        queryLabel = body.query as string
+      }
+    } else {
+      const fallback = sessionStorage.getItem('trailmind_query') || trail.activity
+      body = { query: `${fallback} — but ${critiqueText.toLowerCase()}` }
+      queryLabel = body.query as string
+    }
+
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: newQuery }),
+      body: JSON.stringify(body),
     })
     if (res.ok) {
       // Search API returns streaming text/plain — read it the same way SearchQuiz does
@@ -82,8 +102,12 @@ export default function ActionBar({ trail, onDopeSheetClick }: ActionBarProps) {
 
       const data = JSON.parse(dataBuffer.trim())
       sessionStorage.setItem('trailmind_results', JSON.stringify(data))
-      sessionStorage.setItem('trailmind_query', newQuery)
-      router.push(`/results?q=${encodeURIComponent(newQuery)}`)
+      sessionStorage.setItem('trailmind_query', queryLabel)
+      // Persist the post-clamp structured query so the next critique carries the chain
+      if (data.clampedQuery) {
+        sessionStorage.setItem('trailmind_search_query', JSON.stringify(data.clampedQuery))
+      }
+      router.push(`/results?q=${encodeURIComponent(queryLabel)}`)
     }
   }
 

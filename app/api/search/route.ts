@@ -325,6 +325,11 @@ function buildUserPrompt(q: SearchQuery): { prompt: string; clampedQuery: Search
     parts.push(`Additional notes: ${notes}`)
   }
 
+  if (q.critique) {
+    const critique = q.critique.trim().slice(0, 300)
+    parts.push(`\nThe user wasn't satisfied with the previous results. Their feedback: "${critique}". Adjust your recommendations accordingly — avoid repeating what they disliked and lean into what they asked for.`)
+  }
+
   if (springClampNote) {
     parts.push(springClampNote)
   }

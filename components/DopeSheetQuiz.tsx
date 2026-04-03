@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { DopeSheetQuizAnswers, Trail } from '@/lib/types'
 
 interface DopeSheetQuizProps {
@@ -9,11 +9,13 @@ interface DopeSheetQuizProps {
   onClose: () => void
 }
 
-const STEPS = ['Trip type', 'Group size', 'Duration', 'Season', 'Experience']
+type StepId = 'trip_type' | 'group_size' | 'duration' | 'season' | 'experience' | 'pack_weight'
 
 export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQuizProps) {
+  // Whitewater trails default to expedition (safer); flatwater/generic default to day
   const defaultType: DopeSheetQuizAnswers['trip_type'] =
-    trail.activity === 'kayak' ? 'kayak_day'
+    trail.activity === 'kayak_whitewater' ? 'kayak_expedition'
+    : trail.activity === 'kayak_flatwater' ? 'kayak_day'
     : trail.activity === 'backpack' ? 'backpack'
     : 'hike'
 
@@ -45,6 +47,25 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
   const [durationError, setDurationError] = useState('')
 
   const isDayTrip = answers.trip_type === 'hike' || answers.trip_type === 'kayak_day'
+  const isOvernight = answers.trip_type === 'backpack' || answers.trip_type === 'kayak_expedition'
+
+  // Dynamic steps array — pack weight only for overnight trips
+  const steps = useMemo<{ id: StepId; label: string }[]>(() => {
+    const base: { id: StepId; label: string }[] = [
+      { id: 'trip_type', label: 'Trip type' },
+      { id: 'group_size', label: 'Group size' },
+      { id: 'duration', label: 'Duration' },
+      { id: 'season', label: 'Season' },
+      { id: 'experience', label: 'Experience' },
+    ]
+    if (isOvernight) {
+      base.push({ id: 'pack_weight', label: 'Pack weight' })
+    }
+    return base
+  }, [isOvernight])
+
+  const currentStepId = steps[step]?.id
+  const isLastStep = step === steps.length - 1
 
   const handleSelect = (field: keyof DopeSheetQuizAnswers, value: string) => {
     const updated = { ...answers, [field]: value } as DopeSheetQuizAnswers
@@ -63,7 +84,11 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
       setDurationError('')
     }
     setAnswers(updated)
-    if (step < 4) setStep(step + 1)
+    if (!isLastStep) setStep(step + 1)
+  }
+
+  const handleNext = () => {
+    if (!isLastStep) setStep(step + 1)
   }
 
   return (
@@ -98,11 +123,11 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
           </h2>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar — derived from dynamic steps */}
         <div className="flex gap-1.5 mb-6">
-          {STEPS.map((label, i) => (
+          {steps.map((s, i) => (
             <div
-              key={label}
+              key={s.id}
               className="h-1 flex-1 rounded-full transition-all duration-300"
               style={{ background: i <= step ? '#0D3323' : 'rgba(13,51,35,0.15)' }}
             />
@@ -111,31 +136,40 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
 
         {/* Step label */}
         <p className="label-caps mb-4">
-          {step + 1} / {STEPS.length} — {STEPS[step]}
+          {step + 1} / {steps.length} — {steps[step]?.label}
         </p>
 
-        {/* Questions */}
-        {step === 0 && (
-          <QuizQuestion
-            label="What type of trip?"
-            options={[
-              { value: 'hike', label: 'Hike', sub: 'Day hike' },
-              { value: 'backpack', label: 'Backpack', sub: 'Overnight+' },
-              { value: 'kayak_day', label: 'Kayak', sub: 'Day paddle' },
-              { value: 'kayak_expedition', label: 'Kayak expedition', sub: 'Overnight+' },
-            ]}
-
-            onSelect={(v) => handleSelect('trip_type', v)}
-          />
+        {/* Step: Trip type */}
+        {currentStepId === 'trip_type' && (
+          <>
+            <QuizQuestion
+              label="What type of trip?"
+              options={[
+                { value: 'hike', label: 'Hike', sub: 'Day hike' },
+                { value: 'backpack', label: 'Backpack', sub: 'Overnight+' },
+                { value: 'kayak_day', label: 'Kayak', sub: 'Day paddle' },
+                { value: 'kayak_expedition', label: 'Kayak expedition', sub: 'Overnight+' },
+              ]}
+              onSelect={(v) => handleSelect('trip_type', v)}
+            />
+            {trail.activity === 'kayak_whitewater' && trail.estimated_hours <= 8 && (
+              <div
+                className="mt-3 px-4 py-3 rounded-xl text-xs"
+                style={{ background: 'rgba(252,169,68,0.2)', color: '#0D3323', border: '1px solid #FCA944' }}
+              >
+                This trail is typically done as a day run (~{trail.estimated_hours}h). Select &quot;Kayak&quot; above if planning a single-day trip.
+              </div>
+            )}
+          </>
         )}
 
-        {step === 1 && (
-          <GroupSizeStep
-            onSelect={(v) => handleSelect('group_size', v)}
-          />
+        {/* Step: Group size */}
+        {currentStepId === 'group_size' && (
+          <GroupSizeStep onSelect={(v) => handleSelect('group_size', v)} />
         )}
 
-        {step === 2 && isDayTrip && (
+        {/* Step: Duration — hours for day trips */}
+        {currentStepId === 'duration' && isDayTrip && (
           <div>
             <p className="text-base font-medium mb-4" style={{ color: '#0D3323', fontFamily: 'Comfortaa, sans-serif' }}>
               How many hours?
@@ -173,7 +207,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
                 const num = parseInt(durationInput, 10)
                 if (!isNaN(num) && num >= 1 && num <= 16) {
                   setAnswers((prev) => ({ ...prev, duration_days: 1, duration_hours: num }))
-                  setStep(step + 1)
+                  handleNext()
                 }
               }}
               className="pill-btn btn-green px-6 py-2.5 text-sm"
@@ -184,7 +218,8 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
           </div>
         )}
 
-        {step === 2 && !isDayTrip && (
+        {/* Step: Duration — days for overnight */}
+        {currentStepId === 'duration' && !isDayTrip && (
           <div>
             <p className="text-base font-medium mb-4" style={{ color: '#0D3323', fontFamily: 'Comfortaa, sans-serif' }}>
               How many days?
@@ -222,7 +257,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
                 const num = parseInt(durationInput, 10)
                 if (!isNaN(num) && num >= 2 && num <= 30) {
                   setAnswers((prev) => ({ ...prev, duration_days: num, duration_hours: undefined }))
-                  setStep(step + 1)
+                  handleNext()
                 }
               }}
               className="pill-btn btn-green px-6 py-2.5 text-sm"
@@ -233,7 +268,8 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
           </div>
         )}
 
-        {step === 3 && (
+        {/* Step: Season */}
+        {currentStepId === 'season' && (
           <QuizQuestion
             label="What season?"
             options={[
@@ -242,12 +278,12 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
               { value: 'fall', label: 'Fall', sub: 'Sep – Nov' },
               { value: 'winter', label: 'Winter', sub: 'Dec – Feb' },
             ]}
-
             onSelect={(v) => handleSelect('season', v)}
           />
         )}
 
-        {step === 4 && (
+        {/* Step: Experience */}
+        {currentStepId === 'experience' && (
           <QuizQuestion
             label="Experience level?"
             options={[
@@ -256,9 +292,32 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
               { value: 'comfortable', label: 'Comfortable', sub: 'Regular outdoorsperson' },
               { value: 'very_experienced', label: 'Very experienced', sub: 'Know what you\'re doing' },
             ]}
-
             onSelect={(v) => handleSelect('experience', v)}
           />
+        )}
+
+        {/* Step: Pack weight (overnight only) */}
+        {currentStepId === 'pack_weight' && (
+          <>
+            <QuizQuestion
+              label="Approximate pack weight?"
+              options={[
+                { value: 'ultralight', label: 'Ultralight', sub: 'Sub-15 lbs base weight' },
+                { value: 'standard', label: 'Standard', sub: '15–25 lbs base weight' },
+                { value: 'heavy', label: 'Heavy', sub: '25+ lbs base weight' },
+                { value: 'unknown', label: 'Not sure', sub: "I haven't weighed my gear" },
+              ]}
+              onSelect={(v) => handleSelect('pack_category', v)}
+            />
+            {answers.pack_category === 'unknown' && (
+              <div
+                className="mt-3 px-4 py-3 rounded-xl text-xs"
+                style={{ background: 'rgba(252,169,68,0.2)', color: '#0D3323', border: '1px solid #FCA944' }}
+              >
+                We&apos;ll plan around a standard pack (18–22 lbs base). If your gear weighs significantly more or less, your pacing and food estimates may be off. Weigh your pack before your trip.
+              </div>
+            )}
+          </>
         )}
 
         {/* Footer */}
@@ -275,7 +334,7 @@ export default function DopeSheetQuiz({ trail, onSubmit, onClose }: DopeSheetQui
             <span />
           )}
 
-          {step === 4 && (
+          {isLastStep && (
             <button
               onClick={() => onSubmit(answers)}
               className="pill-btn btn-green px-6 py-2.5 text-sm font-medium"

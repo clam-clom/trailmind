@@ -6,6 +6,8 @@ import {
   DopeSheetDay,
   FoodPlan,
   GearList,
+  PackWeightEstimate,
+  ResupplyPlan,
   EvacPlan,
   Rapid,
   DopeSheetLinks,
@@ -398,6 +400,73 @@ function RapidsSection({ rapids }: { rapids: Rapid[] }) {
   )
 }
 
+function PackWeightSection({ pw }: { pw: PackWeightEstimate }) {
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div>
+          <span className="label-caps block mb-0.5">Base Gear</span>
+          <span className="text-sm" style={{ color: '#4a6858' }}>{pw.base_gear_lbs}</span>
+        </div>
+        <div>
+          <span className="label-caps block mb-0.5">Food</span>
+          <span className="text-sm" style={{ color: '#4a6858' }}>{pw.food_lbs} lbs</span>
+        </div>
+        <div>
+          <span className="label-caps block mb-0.5">Water (day 1)</span>
+          <span className="text-sm" style={{ color: '#4a6858' }}>{pw.water_lbs} lbs</span>
+        </div>
+        <div>
+          <span className="label-caps block mb-0.5">Estimated Total</span>
+          <span className="text-sm font-medium" style={{ color: '#0D3323' }}>{pw.estimated_total}</span>
+        </div>
+      </div>
+      {pw.warning && (
+        <div
+          className="mt-3 px-4 py-3 rounded-xl text-xs"
+          style={{ background: 'rgba(252,169,68,0.2)', color: '#0D3323', border: '1px solid #FCA944' }}
+        >
+          {pw.warning}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ResupplySection({ plan }: { plan: ResupplyPlan }) {
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+        <div>
+          <span className="label-caps block mb-0.5">Max Carry Days</span>
+          <span className="text-sm" style={{ color: '#4a6858' }}>{plan.max_carry_days} days</span>
+        </div>
+        <div>
+          <span className="label-caps block mb-0.5">Total Food Weight</span>
+          <span className="text-sm" style={{ color: '#4a6858' }}>{plan.total_food_weight_lbs} lbs</span>
+        </div>
+      </div>
+      {plan.resupply_intervals.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {plan.resupply_intervals.map((interval, i) => (
+            <div
+              key={i}
+              className="rounded-xl p-3 text-sm"
+              style={{ background: '#edf1e4', border: '1px solid #c0ceac' }}
+            >
+              <span className="font-medium" style={{ color: '#0D3323' }}>After day {interval.after_day}:</span>{' '}
+              <span style={{ color: '#4a6858' }}>{interval.method_suggestion}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-xs" style={{ color: '#5a7860', lineHeight: 1.6 }}>
+        {plan.disclaimer}
+      </p>
+    </div>
+  )
+}
+
 function LinksSection({ links, isKayak }: { links: DopeSheetLinks; isKayak: boolean }) {
   const groups = [
     { label: 'Trail / Route', items: links.trail },
@@ -539,6 +608,18 @@ export default function DopeSheetDisplay({ sheet, trailName }: DopeSheetDisplayP
           <p className="text-sm" style={{ color: '#4a6858', lineHeight: 1.7 }}>
             <VerifyText text={sheet.water_and_snacks} />
           </p>
+        </Section>
+      )}
+
+      {sheet.pack_weight_estimate && (
+        <Section title="Pack Weight Estimate" defaultOpen={false}>
+          <PackWeightSection pw={sheet.pack_weight_estimate} />
+        </Section>
+      )}
+
+      {sheet.resupply_plan && sheet.resupply_plan.required && (
+        <Section title="Resupply Plan" defaultOpen={false}>
+          <ResupplySection plan={sheet.resupply_plan} />
         </Section>
       )}
 

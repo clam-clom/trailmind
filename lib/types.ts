@@ -3,7 +3,7 @@ export interface Trail {
   name: string
   region: string
   state: string
-  activity: 'hike' | 'backpack' | 'kayak' | 'kayak_flatwater' | 'kayak_whitewater'
+  activity: 'hike' | 'backpack' | 'kayak_flatwater' | 'kayak_whitewater'
   difficulty: 'easy' | 'moderate' | 'hard' | 'strenuous'
   distance_miles: number
   elevation_gain_ft: number | null
@@ -34,6 +34,7 @@ export interface SearchQuery {
   season: 'spring' | 'summer' | 'fall' | 'winter'
   features: string[]
   notes: string // max 200 chars
+  critique?: string // from "Not quite" re-search, max 300 chars
 }
 
 export type InteractionStatus = 'saved' | 'completed' | 'passed' | 'critiqued'
@@ -60,6 +61,7 @@ export interface DopeSheetQuizAnswers {
   duration_hours?: number // 1-16, for day trips (hike / kayak_day)
   season: 'spring' | 'summer' | 'fall' | 'winter'
   experience: 'first_timer' | 'some_experience' | 'comfortable' | 'very_experienced'
+  pack_category?: 'ultralight' | 'standard' | 'heavy' | 'unknown' // overnight only
 }
 
 export interface DopeSheetDay {
@@ -100,6 +102,22 @@ export interface FoodPlan {
 export interface GearList {
   personal: string[]
   shared: string[]
+}
+
+export interface PackWeightEstimate {
+  base_gear_lbs: string   // range from user category, e.g. "18–22 lbs"
+  food_lbs: number        // calculated from phased rates × carry days
+  water_lbs: number       // from water carry calc, first segment
+  estimated_total: string // range like "35–42 lbs"
+  warning?: string        // populated if dangerous weight
+}
+
+export interface ResupplyPlan {
+  required: boolean
+  max_carry_days: number
+  resupply_intervals: { after_day: number; method_suggestion: string }[]
+  total_food_weight_lbs: number
+  disclaimer: string
 }
 
 export interface EvacSection {
@@ -149,6 +167,8 @@ export interface DopeSheet {
   days: DopeSheetDay[]
   food_plan?: FoodPlan
   gear_list: GearList
+  pack_weight_estimate?: PackWeightEstimate
+  resupply_plan?: ResupplyPlan
   water_and_snacks?: string
   evac_plan: EvacPlan
   rapids?: Rapid[]
